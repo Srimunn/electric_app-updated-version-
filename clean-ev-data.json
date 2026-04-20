@@ -1,0 +1,322 @@
+[
+  {
+    "id": "1",
+    "brand": "Tesla",
+    "model": "Model 3",
+    "variant": "Long Range",
+    "usable_battery_size": 75,
+    "energy_consumption": {
+      "average_consumption": 15.5
+    },
+    "dc_charger": {
+      "max_power": 250
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "2",
+    "brand": "Tesla",
+    "model": "Model Y",
+    "variant": "Performance",
+    "usable_battery_size": 75,
+    "energy_consumption": {
+      "average_consumption": 17.1
+    },
+    "dc_charger": {
+      "max_power": 250
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "3",
+    "brand": "Ford",
+    "model": "Mustang Mach-E",
+    "variant": "Premium",
+    "usable_battery_size": 91,
+    "energy_consumption": {
+      "average_consumption": 18.5
+    },
+    "dc_charger": {
+      "max_power": 150
+    },
+    "ac_charger": {
+      "max_power": 10.5
+    }
+  },
+  {
+    "id": "4",
+    "brand": "Porsche",
+    "model": "Taycan",
+    "variant": "4S",
+    "usable_battery_size": 83.7,
+    "energy_consumption": {
+      "average_consumption": 21
+    },
+    "dc_charger": {
+      "max_power": 270
+    },
+    "ac_charger": {
+      "max_power": 22
+    }
+  },
+  {
+    "id": "5",
+    "brand": "Audi",
+    "model": "e-tron GT",
+    "variant": "RS",
+    "usable_battery_size": 83.7,
+    "energy_consumption": {
+      "average_consumption": 20.5
+    },
+    "dc_charger": {
+      "max_power": 270
+    },
+    "ac_charger": {
+      "max_power": 22
+    }
+  },
+  {
+    "id": "6",
+    "brand": "Hyundai",
+    "model": "IONIQ 5",
+    "variant": "Limited",
+    "usable_battery_size": 77.4,
+    "energy_consumption": {
+      "average_consumption": 16.8
+    },
+    "dc_charger": {
+      "max_power": 233
+    },
+    "ac_charger": {
+      "max_power": 10.9
+    }
+  },
+  {
+    "id": "7",
+    "brand": "Kia",
+    "model": "EV6",
+    "variant": "GT-Line",
+    "usable_battery_size": 77.4,
+    "energy_consumption": {
+      "average_consumption": 16.5
+    },
+    "dc_charger": {
+      "max_power": 233
+    },
+    "ac_charger": {
+      "max_power": 10.9
+    }
+  },
+  {
+    "id": "8",
+    "brand": "Lucid",
+    "model": "Air",
+    "variant": "Grand Touring",
+    "usable_battery_size": 112,
+    "energy_consumption": {
+      "average_consumption": 16
+    },
+    "dc_charger": {
+      "max_power": 300
+    },
+    "ac_charger": {
+      "max_power": 19.2
+    }
+  },
+  {
+    "id": "9",
+    "brand": "Rivian",
+    "model": "R1T",
+    "variant": "Adventure",
+    "usable_battery_size": 135,
+    "energy_consumption": {
+      "average_consumption": 26.5
+    },
+    "dc_charger": {
+      "max_power": 220
+    },
+    "ac_charger": {
+      "max_power": 11.5
+    }
+  },
+  {
+    "id": "10",
+    "brand": "BMW",
+    "model": "iX",
+    "variant": "xDrive50",
+    "usable_battery_size": 105.2,
+    "energy_consumption": {
+      "average_consumption": 21
+    },
+    "dc_charger": {
+      "max_power": 195
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "11",
+    "brand": "Mercedes-Benz",
+    "model": "EQS",
+    "variant": "580 4MATIC",
+    "usable_battery_size": 107.8,
+    "energy_consumption": {
+      "average_consumption": 18.5
+    },
+    "dc_charger": {
+      "max_power": 200
+    },
+    "ac_charger": {
+      "max_power": 9.6
+    }
+  },
+  {
+    "id": "12",
+    "brand": "Volkswagen",
+    "model": "ID.4",
+    "variant": "Pro S AWD",
+    "usable_battery_size": 77,
+    "energy_consumption": {
+      "average_consumption": 19
+    },
+    "dc_charger": {
+      "max_power": 135
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "13",
+    "brand": "Volvo",
+    "model": "XC40 Recharge",
+    "variant": "Twin",
+    "usable_battery_size": 75,
+    "energy_consumption": {
+      "average_consumption": 21.5
+    },
+    "dc_charger": {
+      "max_power": 150
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "14",
+    "brand": "Polestar",
+    "model": "2",
+    "variant": "Long Range Dual Motor",
+    "usable_battery_size": 75,
+    "energy_consumption": {
+      "average_consumption": 19.5
+    },
+    "dc_charger": {
+      "max_power": 150
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "15",
+    "brand": "Nissan",
+    "model": "Ariya",
+    "variant": "Evolve+",
+    "usable_battery_size": 87,
+    "energy_consumption": {
+      "average_consumption": 18.5
+    },
+    "dc_charger": {
+      "max_power": 130
+    },
+    "ac_charger": {
+      "max_power": 7.2
+    }
+  },
+  {
+    "id": "16",
+    "brand": "Chevrolet",
+    "model": "Silverado EV",
+    "variant": "RST",
+    "usable_battery_size": 200,
+    "energy_consumption": {
+      "average_consumption": 28
+    },
+    "dc_charger": {
+      "max_power": 350
+    },
+    "ac_charger": {
+      "max_power": 19.2
+    }
+  },
+  {
+    "id": "17",
+    "brand": "GMC",
+    "model": "Hummer EV",
+    "variant": "Edition 1",
+    "usable_battery_size": 212,
+    "energy_consumption": {
+      "average_consumption": 35
+    },
+    "dc_charger": {
+      "max_power": 350
+    },
+    "ac_charger": {
+      "max_power": 11.5
+    }
+  },
+  {
+    "id": "18",
+    "brand": "Fisker",
+    "model": "Ocean",
+    "variant": "Extreme",
+    "usable_battery_size": 106,
+    "energy_consumption": {
+      "average_consumption": 17.5
+    },
+    "dc_charger": {
+      "max_power": 200
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "19",
+    "brand": "Genesis",
+    "model": "GV60",
+    "variant": "Performance",
+    "usable_battery_size": 77.4,
+    "energy_consumption": {
+      "average_consumption": 17.5
+    },
+    "dc_charger": {
+      "max_power": 235
+    },
+    "ac_charger": {
+      "max_power": 11
+    }
+  },
+  {
+    "id": "20",
+    "brand": "Toyota",
+    "model": "bZ4X",
+    "variant": "Limited AWD",
+    "usable_battery_size": 71.4,
+    "energy_consumption": {
+      "average_consumption": 18
+    },
+    "dc_charger": {
+      "max_power": 100
+    },
+    "ac_charger": {
+      "max_power": 6.6
+    }
+  }
+]

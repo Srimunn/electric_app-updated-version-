@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Image, SafeAreaView, Dimensions, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ResizeMode, Video } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,33 +17,31 @@ const { width, height } = Dimensions.get('window');
 export default function ParkingScreen() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const progressAnim = useRef(new Animated.Value(0.33)).current;
-  const carTranslateY = useRef(new Animated.Value(160)).current;
-  const carTranslateX = useRef(new Animated.Value(40)).current;
+  const progressAnim = useRef(new Animated.Value(0.25)).current;
 
   useEffect(() => {
-    Animated.timing(carTranslateY, { toValue: 80, duration: 2000, useNativeDriver: true }).start();
     const timer1 = setTimeout(() => {
       setStep(2);
-      Animated.parallel([
-        Animated.timing(progressAnim, { toValue: 0.66, duration: 1000, useNativeDriver: false }),
-        Animated.timing(carTranslateX, { toValue: 0, duration: 2000, useNativeDriver: true }),
-        Animated.timing(carTranslateY, { toValue: 0, duration: 2000, useNativeDriver: true }),
-      ]).start();
-    }, 2500);
+      Animated.timing(progressAnim, { toValue: 0.65, duration: 600, useNativeDriver: false }).start();
+    }, 2000);
+
     const timer2 = setTimeout(() => {
       setStep(3);
-      Animated.timing(progressAnim, { toValue: 1, duration: 1000, useNativeDriver: false }).start();
-    }, 5000);
+      Animated.timing(progressAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+    }, 4000);
+
     return () => { clearTimeout(timer1); clearTimeout(timer2); };
   }, []);
 
   const getStepText = () => {
     switch(step) {
-      case 1: return { main: "Move forward 2.5 meters", sub: "Adjusting Position....", icon: "information" };
-      case 2: return { main: "Move left 0.4 meters", sub: "Adjusting Position....", icon: "information" };
-      case 3: return { main: "Perfect alignment achieved", sub: "Ready to Charge", icon: "chevron-double-right" };
-      default: return { main: "Loading...", sub: "Please wait", icon: "help-circle-outline" };
+      case 1:
+        return { main: "Move Forward 2.5 meters", sub: "Approaching pad...", icon: "information" };
+      case 2:
+        return { main: "Move Left 0.4 meters", sub: "Aligning laterally...", icon: "information" };
+      default:
+        return { main: "Alignment Achieved", sub: "✓ Perfect alignment!", icon: "chevron-double-right" };
+      
     }
   };
 
@@ -55,29 +54,31 @@ export default function ParkingScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name={step === 3 ? "arrow-back" : "close"} size={26} color="#1E293B" />
+            <Ionicons name={step >= 3 ? "arrow-back" : "close"} size={26} color="#1E293B" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Parking Alignment</Text>
           <View style={{ width: 44 }} />
         </View>
         <View style={styles.content}>
           <Text style={styles.instructionSmall}>Follow the guidance to position your vehicle</Text>
+          
           <View style={styles.visualizationContainer}>
-            <Animated.View style={[styles.alignmentImageContainer, { transform: [{ translateX: carTranslateX }, { translateY: carTranslateY }] }]}>
-              <Image source={require('../assets/images/hero-car.png')} style={styles.alignmentImage} resizeMode="contain" />
-            </Animated.View>
-            <View style={[styles.alignmentBox, step === 3 && styles.alignmentBoxPerfect]}>
-              {step === 3 ? (
-                <View style={styles.perfectBadge}>
-                  <Ionicons name="checkmark-circle" size={40} color="#FFFFFF" />
-                </View>
-              ) : null}
+            <View style={styles.alignmentImageContainer}>
+              <Video
+                source={require('../assets/images/animation.mp4')}
+                style={styles.parkingVideo}
+                resizeMode={ResizeMode.COVER}
+                shouldPlay
+                isLooping
+                isMuted
+              />
             </View>
           </View>
+
           <View style={styles.statusCard}>
             <View style={styles.statusTextRow}>
               <View>
-                <Text style={[styles.statusMain, step === 3 && styles.statusMainPerfect]}>{stepData.main}</Text>
+                <Text style={[styles.statusMain, step >= 3 && styles.statusMainPerfect]}>{stepData.main}</Text>
                 <Text style={styles.statusSub}>{stepData.sub}</Text>
               </View>
               <MaterialCommunityIcons name={stepData.icon as any} size={28} color="#0D7FF2" />
@@ -86,8 +87,9 @@ export default function ParkingScreen() {
               <Animated.View style={[styles.progressFill, { width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
             </View>
           </View>
+
           <View style={styles.footer}>
-            <TouchableOpacity disabled={step !== 3} style={[styles.primaryBtn, step !== 3 && styles.primaryBtnDisabled]} onPress={() => router.push('/safety')}>
+            <TouchableOpacity disabled={step < 3} style={[styles.primaryBtn, step < 3 && styles.primaryBtnDisabled]} onPress={() => router.push('/safety')}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={styles.primaryBtnText}>Start Charging</Text>
                 <MaterialCommunityIcons name="flash" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
@@ -152,52 +154,25 @@ const styles = StyleSheet.create({
   },
   visualizationContainer: {
     width: width - 44,
-    height: 380,
-    borderRadius: 30,
-    overflow: 'hidden',
-    backgroundColor: '#000000',
+    height: 240,
+    borderRadius: 0,
+    overflow: 'visible',
+    backgroundColor: 'transparent',
     marginTop: height * 0.02, // Adjusted to be slightly higher (3% instead of 5%)
     marginBottom: 25,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  parkingVideo: {
+    width: '100%',
+    height: '100%',
   },
   alignmentImageContainer: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  alignmentImage: {
-    width: '110%', // Slightly larger for better coverage
-    height: '110%',
-  },
-  alignmentBox: {
-    position: 'absolute',
-    top: '30%',
-    left: '15%',
-    right: '15%',
-    bottom: '25%',
-    borderWidth: 2,
-    borderColor: '#0D7FF2',
-    borderRadius: 20,
-    backgroundColor: 'rgba(13, 127, 242, 0.1)',
-  },
-  alignmentBoxPerfect: {
-    borderColor: '#0D7FF2',
-    backgroundColor: 'rgba(13, 127, 242, 0.1)',
-    borderWidth: 4,
-  },
-  perfectBadge: {
-    position: 'absolute',
-    top: -20,
-    alignSelf: 'center',
-    backgroundColor: '#0D7FF2',
-    borderRadius: 25,
-    padding: 2,
-    elevation: 8,
+    bottom: 0,
   },
   statusCard: {
     width: '100%',
@@ -212,6 +187,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 16,
     marginBottom: 20,
   },
   statusMain: {
@@ -243,7 +219,7 @@ const styles = StyleSheet.create({
   footer: {
     width: '100%',
     position: 'absolute',
-    bottom: 60,
+    bottom: 75,
   },
   primaryBtn: {
     width: '100%',
@@ -270,3 +246,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+

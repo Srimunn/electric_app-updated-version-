@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useState } from 'react';
+import { useVehicle } from '../context/VehicleContext';
 import { Dimensions, Keyboard, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -112,6 +113,7 @@ export default function MapScreen() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
   const { vehicleName } = useLocalSearchParams();
+  const { selectedVehicleName } = useVehicle();
   const [selectedFilter, setSelectedFilter] = useState('Available');
   const [isLiked, setIsLiked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -230,7 +232,7 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.carTitle}>{vehicleName || 'Tata Nexon EV'}</Text>
+          <Text style={styles.carTitle}>{selectedVehicleName || vehicleName || 'Tata Nexon EV'}</Text>
           <View style={styles.locationInfo}>
             <Ionicons name="location" size={14} color="#94A3B8" />
             <Text style={styles.locationText}>1.2 km away • 8/10 available</Text>

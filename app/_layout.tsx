@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { VehicleProvider } from '../context/VehicleContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -17,7 +18,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
+    <VehicleProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
@@ -37,6 +38,6 @@ export default function RootLayout() {
         <Stack.Screen name="settings" />
       </Stack>
       <StatusBar style="auto" />
-    </>
+    </VehicleProvider>
   );
 }

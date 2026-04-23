@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
+import { useVehicle } from '../context/VehicleContext';
 import { ActivityIndicator, Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -14,115 +15,29 @@ const { width } = Dimensions.get('window');
  */
 
 // Fallback static data in case the fetch fails or API is not yet configured
+
 const FALLBACK_VEHICLES = [
-  { id: '1', name: 'Tata Nexon EV', variant: 'Empower+ Long Range', battery: '40.5 KWH', range: '465 KM', image: require('../assets/images/hero-car.png') },
-  { id: '2', name: 'Mahindra XUV400', variant: 'EL Pro Variant', battery: '39.4 KWH', range: '390 KM', image: require('../assets/images/hero-car.png') },
-  { id: '3', name: 'Suzuki Wagon R EV', variant: 'Concept Version', battery: '28.5 KWH', range: '250 KM', image: require('../assets/images/hero-car.png') },
-  { id: '4', name: 'MG ZS EV', variant: 'Exclusive Plus', battery: '50.3 KWH', range: '461 KM', image: require('../assets/images/hero-car.png') },
-  { id: '5', name: 'Hyundai IONIQ 5', variant: 'RWD 72.6 kWh', battery: '72.6 KWH', range: '631 KM', image: require('../assets/images/hero-car.png') },
-  { id: '6', name: 'KIA EV6', variant: 'GT-Line AWD', battery: '77.4 KWH', range: '528 KM', image: require('../assets/images/hero-car.png') },
-  { id: '7', name: 'BYD Atto 3', variant: 'Superior', battery: '60.4 KWH', range: '521 KM', image: require('../assets/images/hero-car.png') },
-  { id: '8', name: 'Volvo XC40 Recharge', variant: 'Twin Motor', battery: '78 KWH', range: '418 KM', image: require('../assets/images/hero-car.png') },
-  { id: '9', name: 'BMW i4', variant: 'eDrive40', battery: '83.9 KWH', range: '590 KM', image: require('../assets/images/hero-car.png') },
-  { id: '10', name: 'Mercedes-Benz EQB', variant: '350 4MATIC', battery: '66.5 KWH', range: '423 KM', image: require('../assets/images/hero-car.png') },
-  { id: '11', name: 'Ford Mustang Mach-E', variant: 'Premium AWD', battery: '91 KWH', range: '466 KM', image: require('../assets/images/hero-car.png') },
-  { id: '12', name: 'Audi e-tron GT', variant: 'RS', battery: '83.7 KWH', range: '472 KM', image: require('../assets/images/hero-car.png') },
-  { id: '13', name: 'Porsche Taycan', variant: '4S', battery: '93.4 KWH', range: '463 KM', image: require('../assets/images/hero-car.png') },
-  { id: '14', name: 'Polestar 2', variant: 'Long Range Dual Motor', battery: '78 KWH', range: '482 KM', image: require('../assets/images/hero-car.png') },
-  { id: '15', name: 'Rivian R1T', variant: 'Adventure', battery: '135 KWH', range: '505 KM', image: require('../assets/images/hero-car.png') },
-  { id: '16', name: 'Lucid Air', variant: 'Grand Touring', battery: '112 KWH', range: '830 KM', image: require('../assets/images/hero-car.png') },
+  { id: '1', name: 'Tata Nexon EV', variant: 'Empower+ Long Range', battery: '40.5 KWH', range: '465 KM', image: require('../assets/images/nexon.png')},
+  { id: '2', name: 'Tata Punch EV', variant: 'Long Range', battery: '35 KWH', range: '421 KM', image: require('../assets/images/2 punch.png') },
+  { id: '3', name: 'Tata Tiago EV', variant: 'XT LR', battery: '24 KWH', range: '315 KM', image: require('../assets/images/3 tiago.png')},
+  { id: '4', name: 'Mahindra XUV400', variant: 'EL Pro', battery: '39.4 KWH', range: '390 KM', image: require('../assets/images/4_mahindra_xuv.png') },
+  { id: '5', name: 'Mahindra BE 6', variant: 'Base', battery: '60 KWH', range: '450 KM', image: require('../assets/images/5 mahindra be .png') },
+  { id: '6', name: 'Mahindra XEV 9e', variant: 'Top', battery: '70 KWH', range: '500 KM', image: require('../assets/images/6 Mahindra XEV 9e ev.png')},
+  { id: '7', name: 'MG ZS EV', variant: 'Exclusive', battery: '50.3 KWH', range: '461 KM', image: require('../assets/images/7 MG ZS EV.png') },
+  { id: '8', name: 'MG Comet EV', variant: 'Smart', battery: '17.3 KWH', range: '230 KM', image: require('../assets/images/8 MG Comet EV.png')},
+  { id: '9', name: 'Hyundai Kona Electric', variant: 'Premium', battery: '39.2 KWH', range: '452 KM', image: require('../assets/images/9 Hyundai Kona Electric.png') },
+  { id: '10', name: 'Hyundai IONIQ 5', variant: 'RWD', battery: '72.6 KWH', range: '631 KM', image: require('../assets/images/10 Hyundai IONIQ 5.png')},
 ];
 
 export default function SelectionScreen() {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState('1');
   const [searchQuery, setSearchQuery] = useState('');
+  const { setSelectedVehicleName, setSelectedVehicleImage } = useVehicle();
 
-  // State for fetched vehicles (strictly API)
-  const [vehicles, setVehicles] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    fetchEVData();
-  }, []);
-
-  const fetchEVData = async () => {
-    setIsLoading(true);
-    try {
-      console.log('Fetching live EV data from Open Socrata API...');
-      // Using a completely free, highly-available public EV dataset API (WA State EV Population)
-      // This requires no API keys and provides real EV makes, models, and ranges.
-      const url = 'https://raw.githubusercontent.com/SuvedaSathees/ev-api/main/indian-ev-api.json';
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      // Map API data to a uniform format.
-      // Supports both:
-      // 1) This repo's indian-ev-api.json schema (name, variant, battery, range)
-      // 2) Older Socrata-style schema (make, model, electric_range)
-      const mappedData = result.map((item: any, index: number) => {
-        const rawName =
-          item.name ||
-          [item.make, item.model].filter(Boolean).join(' ') ||
-          `EV ${index + 1}`;
-
-        const rawVariant =
-          item.variant ||
-          (item.model_year ? `${item.model_year} Edition` : 'Standard');
-
-        const rawBattery = item.battery || 'N/A';
-
-        const rawRange = item.range || item.electric_range || '400';
-        const normalizedRange = String(rawRange).toUpperCase().includes('KM')
-          ? String(rawRange)
-          : `${rawRange} KM`;
-
-        return {
-          id: String(item.id || item.dol_vehicle_id || index + 1),
-          name: rawName,
-          variant: rawVariant,
-          battery: rawBattery,
-          range: normalizedRange,
-          dcChargeMax: 'N/A',
-          acChargeMax: 'N/A',
-          topSpeed: '150 km/h',
-          acceleration: '8.5 sec',
-          image: require('../assets/images/hero-car.png')
-        };
-      });
-
-      // Set data exclusively from the API
-      if (mappedData.length > 0) {
-        const limitedData = mappedData.slice(0, 10);
-
-        // Show every vehicle returned by the API.
-        setVehicles(limitedData);
-        setSelectedId(limitedData[0].id);
-        console.log(`✅ Total EV Cars loaded from API: ${limitedData.length}`);
-      } else {
-        // Do not add fallback data as requested
-        setVehicles([]);
-      }
-
-    } catch (error) {
-      console.log('❌ API fetch failed.', error);
-      setVehicles([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Use the local static array directly to ensure exact 1:1 image mapping
+  const vehicles = FALLBACK_VEHICLES;
+  
   // Filter logic
   const filteredVehicles = vehicles.filter(v =>
     v.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -143,13 +58,7 @@ export default function SelectionScreen() {
           <Text style={styles.headerTitle}>Select Your EV</Text>
         </View>
 
-        {isLoading ? (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#0D7FF2" />
-            <Text style={styles.loaderText}>Fetching Live EV Data...</Text>
-          </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
             {/* Main Vehicle Hero */}
             <View style={styles.heroSection}>
@@ -238,20 +147,22 @@ export default function SelectionScreen() {
               {filteredVehicles.length > 0 && (
                 <TouchableOpacity
                   style={styles.selectButton}
-                  onPress={() => router.push({
-                    pathname: '/details',
-                    params: {
-                      id: selectedVehicle?.id,
-                      name: selectedVehicle?.name,
-                      variant: selectedVehicle?.variant,
-                      battery: selectedVehicle?.battery,
-                      range: selectedVehicle?.range,
-                      // Note: We also pass topSpeed and acceleration if the API provides it
-                      // Assuming the RapidAPI maps these correctly in your mapping logic
-                      topSpeed: (selectedVehicle as any)?.topSpeed || '150 km/h',
-                      acceleration: (selectedVehicle as any)?.acceleration || '8.5 sec'
-                    }
-                  })}
+                  onPress={() => {
+                    setSelectedVehicleName(selectedVehicle?.name || 'Tata Nexon EV');
+                    setSelectedVehicleImage(selectedVehicle?.image || require('../assets/images/nexon.png'));
+                    router.push({
+                      pathname: '/details',
+                      params: {
+                        id: selectedVehicle?.id,
+                        name: selectedVehicle?.name,
+                        variant: selectedVehicle?.variant,
+                        battery: selectedVehicle?.battery,
+                        range: selectedVehicle?.range,
+                        topSpeed: (selectedVehicle as any)?.topSpeed || '150 km/h',
+                        acceleration: (selectedVehicle as any)?.acceleration || '8.5 sec'
+                      }
+                    });
+                  }}
                 >
                   <Text style={styles.selectButtonText}>Select Vehicle</Text>
                   <Ionicons name="arrow-forward" size={24} color="#FFFFFF" style={{ marginLeft: 10 }} />
@@ -260,7 +171,6 @@ export default function SelectionScreen() {
             </View>
 
           </ScrollView>
-        )}
       </SafeAreaView>
     </View>
   );
@@ -491,4 +401,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
 

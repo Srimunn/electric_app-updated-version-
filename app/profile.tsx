@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, SafeAreaView, Dimensions, TouchableOpacity, Scr
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useVehicle } from '../context/VehicleContext';
 
 const { width } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ const ProfileOption = ({ icon, title, subtitle, isLast = false, onSelect }: { ic
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { selectedVehicleName, selectedVehicleImage } = useVehicle();
 
   return (
     <View style={styles.container}>
@@ -69,10 +71,10 @@ export default function ProfileScreen() {
             
             <TouchableOpacity style={styles.vehicleCard}>
                <View style={styles.vehicleImagePlaceholder}>
-                  <Image source={require('../assets/images/hero-car.png')} style={{width: 40, height: 40}} resizeMode="contain" />
+                  <Image source={selectedVehicleImage || require('../assets/images/nexon.png')} style={{width: 40, height: 40}} resizeMode="contain" />
                </View>
                <View style={styles.vehicleTextCenter}>
-                  <Text style={styles.vehicleName}>Tata Nexon EV</Text>
+                  <Text style={styles.vehicleName}>{selectedVehicleName || 'Tata Nexon EV'}</Text>
                   <Text style={styles.vehicleLicense}>License: EL-2024-EV</Text>
                </View>
                <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -359,3 +361,4 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 });
+

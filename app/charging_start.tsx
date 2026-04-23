@@ -1,28 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  SafeAreaView,
-  Dimensions,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Dimensions,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withSpring,
   Easing,
   cancelAnimation,
   interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -204,7 +204,7 @@ export default function ChargingStartScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.carInfoSection}>
             <View style={styles.carLogoContainer}>
-               <Image source={require('../assets/images/hero-car.png')} style={styles.carLogo} resizeMode="cover" />
+               <Image source={require('../assets/images/nexon.png')} style={styles.carLogo} resizeMode="cover" />
             </View>
             <Text style={styles.carName}>Tata Nexon EV</Text>
             <View style={styles.chargingBadge}>
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   },
   batteryPercentNum: {
     fontSize: 34,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: -1,
   },
   batteryPercentNumLight: {

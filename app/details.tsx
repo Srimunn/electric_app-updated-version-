@@ -14,16 +14,16 @@ const { width } = Dimensions.get('window');
  */
 
 const VEHICLES = [
-  { id: '1', name: 'Tata Nexon EV', variant: 'Empower+ Long Range', battery: '40.5 KWH', range: '465 KM', image: require('../assets/images/hero-car.png'), topSpeed: '150 km/h', acceleration: '8.9 sec' },
-  { id: '2', name: 'Mahindra XUV400', variant: 'EL Pro Variant', battery: '39.4 KWH', range: '390 KM', image: require('../assets/images/hero-car.png'), topSpeed: '150 km/h', acceleration: '8.3 sec' },
-  { id: '3', name: 'Suzuki Wagon R EV', variant: 'Concept Version', battery: '28.5 KWH', range: '250 KM', image: require('../assets/images/hero-car.png'), topSpeed: '120 km/h', acceleration: '12.5 sec' },
-  { id: '4', name: 'MG ZS EV', variant: 'Exclusive Plus', battery: '50.3 KWH', range: '461 KM', image: require('../assets/images/hero-car.png'), topSpeed: '140 km/h', acceleration: '8.5 sec' },
-  { id: '5', name: 'Hyundai IONIQ 5', variant: 'RWD 72.6 kWh', battery: '72.6 KWH', range: '631 KM', image: require('../assets/images/hero-car.png'), topSpeed: '185 km/h', acceleration: '7.6 sec' },
-  { id: '6', name: 'KIA EV6', variant: 'GT-Line AWD', battery: '77.4 KWH', range: '528 KM', image: require('../assets/images/hero-car.png'), topSpeed: '192 km/h', acceleration: '5.2 sec' },
-  { id: '7', name: 'BYD Atto 3', variant: 'Superior', battery: '60.4 KWH', range: '521 KM', image: require('../assets/images/hero-car.png'), topSpeed: '160 km/h', acceleration: '7.3 sec' },
-  { id: '8', name: 'Volvo XC40 Recharge', variant: 'Twin Motor', battery: '78 KWH', range: '418 KM', image: require('../assets/images/hero-car.png'), topSpeed: '180 km/h', acceleration: '4.9 sec' },
-  { id: '9', name: 'BMW i4', variant: 'eDrive40', battery: '83.9 KWH', range: '590 KM', image: require('../assets/images/hero-car.png'), topSpeed: '190 km/h', acceleration: '5.7 sec' },
-  { id: '10', name: 'Mercedes-Benz EQB', variant: '350 4MATIC', battery: '66.5 KWH', range: '423 KM', image: require('../assets/images/hero-car.png'), topSpeed: '160 km/h', acceleration: '6.2 sec' },
+  { id: '1', name: 'Tata Nexon EV', variant: 'Empower+ Long Range', battery: '40.5 KWH', range: '465 KM', image: require('../assets/images/nexon.png'), topSpeed: '150 km/h', acceleration: '8.9 sec' },
+  { id: '2', name: 'Tata Punch EV', variant: 'Long Range', battery: '35 KWH', range: '421 KM', image: require('../assets/images/2 punch.png'), topSpeed: '140 km/h', acceleration: '9.5 sec' },
+  { id: '3', name: 'Tata Tiago EV', variant: 'XT LR', battery: '24 KWH', range: '315 KM', image: require('../assets/images/3 tiago.png'), topSpeed: '120 km/h', acceleration: '12.5 sec' },
+  { id: '4', name: 'Mahindra XUV400', variant: 'EL Pro', battery: '39.4 KWH', range: '390 KM', image: require('../assets/images/4_mahindra_xuv.png'), topSpeed: '150 km/h', acceleration: '8.3 sec' },
+  { id: '5', name: 'Mahindra BE 6', variant: 'Base', battery: '60 KWH', range: '450 KM', image: require('../assets/images/5 mahindra be .png'), topSpeed: '160 km/h', acceleration: '7.8 sec' },
+  { id: '6', name: 'Mahindra XEV 9e', variant: 'Top', battery: '70 KWH', range: '500 KM', image: require('../assets/images/6 Mahindra XEV 9e ev.png'), topSpeed: '180 km/h', acceleration: '7.2 sec' },
+  { id: '7', name: 'MG ZS EV', variant: 'Exclusive', battery: '50.3 KWH', range: '461 KM', image: require('../assets/images/7 MG ZS EV.png'), topSpeed: '140 km/h', acceleration: '8.5 sec' },
+  { id: '8', name: 'MG Comet EV', variant: 'Smart', battery: '17.3 KWH', range: '230 KM', image: require('../assets/images/8 MG Comet EV.png'), topSpeed: '100 km/h', acceleration: '14.5 sec' },
+  { id: '9', name: 'Hyundai Kona Electric', variant: 'Premium', battery: '39.2 KWH', range: '452 KM', image: require('../assets/images/9 Hyundai Kona Electric.png'), topSpeed: '155 km/h', acceleration: '9.7 sec' },
+  { id: '10', name: 'Hyundai IONIQ 5', variant: 'RWD', battery: '72.6 KWH', range: '631 KM', image: require('../assets/images/10 Hyundai IONIQ 5.png'), topSpeed: '185 km/h', acceleration: '7.6 sec' },
 ];
 
 export default function VehicleDetails() {
@@ -336,3 +336,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+

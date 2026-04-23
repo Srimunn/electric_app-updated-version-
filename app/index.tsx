@@ -99,7 +99,7 @@ export default function ChargingScreen() {
           <View style={styles.heroSection}>
             <View style={styles.imageWrapper}>
               <Image
-                source={require('../assets/images/hero-car.png')}
+                source={require('../assets/images/nexon.png')}
                 style={styles.heroImage}
                 resizeMode="cover"
               />
@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
   imageWrapper: {
     width: width * 0.88,
     height: width * 0.88,
+    
     borderRadius: 45,
     overflow: 'hidden',
     backgroundColor: '#DADBDF',
@@ -287,3 +288,4 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
 });
+

@@ -132,7 +132,7 @@ export default function LoginScreen() {
             <View style={styles.heroSection}>
               <View style={styles.imageWrapper}>
                 <Image 
-                  source={require('../assets/images/hero-car.png')} 
+                  source={require('../assets/images/nexon.png')} 
                   style={styles.heroImage}
                   resizeMode="cover"
                 />
@@ -386,3 +386,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+

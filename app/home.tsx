@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, Image, SafeAreaView, Dimensions, TouchableOpaci
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useVehicle } from '../context/VehicleContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ const { width, height } = Dimensions.get('window');
 export default function HomeScreen() {
   const router = useRouter();
   const { vehicleName } = useLocalSearchParams();
+  const { selectedVehicleName } = useVehicle();
   const [showNotification, setShowNotification] = useState(false);
 
   return (
@@ -32,7 +34,7 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View>
               <Text style={styles.greetingHeader}>Hello Srimun</Text>
-              <Text style={styles.vehicleNameText}>{vehicleName || 'Tata Nexon EV'}</Text>
+              <Text style={styles.vehicleNameText}>{selectedVehicleName || vehicleName || 'Tata Nexon EV'}</Text>
             </View>
             <TouchableOpacity 
               style={styles.notificationBtn}
@@ -121,7 +123,7 @@ export default function HomeScreen() {
           {/* Primary Action Button */}
           <TouchableOpacity 
             style={styles.primaryActionBtn}
-            onPress={() => router.push('/map')}
+            onPress={() => router.push({ pathname: '/map', params: { vehicleName: vehicleName } })}
           >
             <Text style={styles.primaryActionText}>Find Charging Station</Text>
           </TouchableOpacity>

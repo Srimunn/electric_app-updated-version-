@@ -1,9 +1,10 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ResizeMode, Video } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,6 +19,12 @@ export default function ParkingScreen() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const progressAnim = useRef(new Animated.Value(0.25)).current;
+
+  const player = useVideoPlayer(require('../assets/images/animation.mp4'), (p) => {
+    p.loop = true;
+    p.play();
+    p.muted = true;
+  });
 
   useEffect(() => {
     const timer1 = setTimeout(() => {
@@ -64,13 +71,10 @@ export default function ParkingScreen() {
           
           <View style={styles.visualizationContainer}>
             <View style={styles.alignmentImageContainer}>
-              <Video
-                source={require('../assets/images/animation.mp4')}
+              <VideoView
+                player={player}
                 style={styles.parkingVideo}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay
-                isLooping
-                isMuted
+                contentMode="cover"
               />
             </View>
           </View>

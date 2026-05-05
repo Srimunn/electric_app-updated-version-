@@ -1,5 +1,6 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Dimensions, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +15,7 @@ const { width } = Dimensions.get('window');
  */
 
 const AMENITIES = [
-  { id: '1', name: 'Free Parking', icon: 'square-p', color: '#0D7FF2' },
+  { id: '1', name: 'Free Parking', icon: 'alpha-p-box', color: '#0D7FF2' },
   { id: '2', name: 'Café Nearby', icon: 'coffee', color: '#78350F' },
   { id: '3', name: 'Restrooms', icon: 'human-male-female', color: '#0369A1' },
   { id: '4', name: 'Free WiFi', icon: 'wifi', color: '#475569' },

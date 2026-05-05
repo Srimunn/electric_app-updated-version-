@@ -5,28 +5,28 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import { Alert, Dimensions, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loginUser } from './services/api';
+import { registerUser, verifyOTP } from './services/api';
 
 const { width } = Dimensions.get('window');
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const router = useRouter();
   
   // Form State
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [otp, setOtp] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
-  const handleLogin = async () => {
-    // Demo Login Bypass
-    if (email.trim() === 'demo@example.com' && password === 'password') {
-      setIsLoading(true);
-      await AsyncStorage.setItem('userToken', 'demo-token');
-      await AsyncStorage.setItem('userData', JSON.stringify({ name: 'Demo User', email: 'demo@example.com' }));
-      router.replace('/selection');
+  const handleRegister = async () => {
+    if (!name.trim()) {
+      setError('Enter your name');
       return;
     }
 
@@ -35,8 +35,13 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!password.trim()) {
-      setError('Enter a password');
+    if (!mobile.trim() || mobile.length < 10) {
+      setError('Enter a valid mobile number');
+      return;
+    }
+
+    if (!password.trim() || password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -44,20 +49,35 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      const data = await loginUser(email.trim(), password);
+      await registerUser(name.trim(), email.trim(), password, mobile.trim());
+      setIsOtpSent(true);
+      Alert.alert('OTP Sent', 'Check your messages for the OTP (Mocked: 123456).');
+    } catch (err: any) {
+      console.log('Register error:', err);
+      setError(err.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otp.trim()) {
+      setError('Enter the OTP');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      const data = await verifyOTP(email.trim(), otp.trim());
       if (data.token) {
         await AsyncStorage.setItem('userToken', data.token);
         router.replace('/selection');
       } else {
-        setError('Login failed: No token received');
+        setError('Verification failed');
       }
     } catch (err: any) {
-      console.log('Login error:', err);
-      // Fallback message for tunnel issues
-      const msg = typeof err === 'string' && err.includes('<html>') 
-        ? 'Server connection error (Tunnel issue). Try demo@example.com / password'
-        : (err.message || 'Invalid credentials or network error');
-      setError(msg);
+      console.log('OTP error:', err);
+      setError(err.message || 'OTP Verification failed');
     } finally {
       setIsLoading(false);
     }
@@ -77,10 +97,10 @@ export default function LoginScreen() {
           >
             
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color="#000000" />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Login</Text>
+              <Text style={styles.headerTitle}>Register</Text>
             </View>
 
             <View style={styles.heroSection}>
@@ -94,9 +114,9 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.content}>
-              <Text style={styles.title}>Welcome to EV Charge</Text>
+              <Text style={styles.title}>{isOtpSent ? 'Verify OTP' : 'Create Account'}</Text>
               <Text style={styles.subTitle}>
-                Login to continue with seamless wireless charging.
+                {isOtpSent ? 'Enter the OTP sent to your mobile.' : 'Join EV Charge for seamless wireless charging.'}
               </Text>
 
               {error ? (
@@ -104,6 +124,51 @@ export default function LoginScreen() {
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               ) : null}
+
+              {isOtpSent ? (
+                <View>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Enter OTP</Text>
+                    <TextInput 
+                      style={styles.textInput}
+                      placeholder="123456"
+                      placeholderTextColor="#94A3B8"
+                      value={otp}
+                      onChangeText={(text) => {
+                        setOtp(text);
+                        if (error) setError('');
+                      }}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                  <TouchableOpacity 
+                    style={[styles.continueButton, isLoading && styles.disabledButton]} 
+                    onPress={handleVerifyOTP}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.continueButtonText}>Verify OTP</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View>
+                  <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput 
+                  style={styles.textInput}
+                  placeholder="John Doe"
+                  placeholderTextColor="#94A3B8"
+                  value={name}
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (error) setError('');
+                  }}
+                  autoCapitalize="words"
+                />
+              </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
@@ -122,10 +187,25 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Mobile Number</Text>
+                <TextInput 
+                  style={styles.textInput}
+                  placeholder="Enter 10-digit mobile number"
+                  placeholderTextColor="#94A3B8"
+                  value={mobile}
+                  onChangeText={(text) => {
+                    setMobile(text);
+                    if (error) setError('');
+                  }}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Password</Text>
                 <TextInput 
                   style={styles.textInput}
-                  placeholder="Your Password"
+                  placeholder="Create Password"
                   placeholderTextColor="#94A3B8"
                   value={password}
                   onChangeText={(text) => {
@@ -139,21 +219,23 @@ export default function LoginScreen() {
 
               <TouchableOpacity 
                 style={[styles.continueButton, isLoading && styles.disabledButton]} 
-                onPress={handleLogin}
+                onPress={handleRegister}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.continueButtonText}>Login</Text>
+                  <Text style={styles.continueButtonText}>Register</Text>
                 )}
               </TouchableOpacity>
+              </View>
+              )}
 
               <View style={styles.footer}>
-                <Text style={styles.footerText}>Don't have an account? </Text>
-                <TouchableOpacity onPress={() => router.push('/register')} disabled={isLoading}>
+                <Text style={styles.footerText}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => router.replace('/login')} disabled={isLoading}>
                   <Text style={styles.resendLink}>
-                    Register
+                    Login
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -200,7 +282,7 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     width: width * 0.9,
-    height: 220,
+    height: 180,
     borderRadius: 30,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
@@ -217,7 +299,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 25,
-    paddingTop: 25,
+    paddingTop: 20,
   },
   title: {
     fontSize: 32,
@@ -244,13 +326,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: '700',
     color: '#000000',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   textInput: {
     height: 56,
@@ -288,7 +370,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 30,
+    marginTop: 20,
   },
   footerText: {
     fontSize: 14,
@@ -300,5 +382,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-
 

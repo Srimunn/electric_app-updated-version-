@@ -1,9 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { getStations } from './services/api';
 import { useVehicle } from '../context/VehicleContext';
-import { Dimensions, Keyboard, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 const { width, height } = Dimensions.get('window');
@@ -117,6 +119,21 @@ export default function MapScreen() {
   const [selectedFilter, setSelectedFilter] = useState('Available');
   const [isLiked, setIsLiked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [stations, setStations] = useState<any[]>(CHARGING_STATIONS);
+
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        const data = await getStations();
+        if (data && Array.isArray(data)) {
+          setStations(data);
+        }
+      } catch (err) {
+        console.log('Failed to fetch stations', err);
+      }
+    };
+    fetchStations();
+  }, []);
 
   // Initial region
   const initialRegion = {
@@ -149,9 +166,9 @@ export default function MapScreen() {
         initialRegion={initialRegion}
         provider={PROVIDER_GOOGLE}
       >
-        {CHARGING_STATIONS.map((station) => (
+        {stations.map((station: any) => (
           <Marker
-            key={station.id}
+            key={station._id || station.id}
             coordinate={{ latitude: station.latitude, longitude: station.longitude }}
             title={station.name}
           >

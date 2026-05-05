@@ -1,8 +1,9 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { VehicleProvider } from '../context/VehicleContext';
@@ -12,9 +13,25 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
 
   useEffect(() => {
-    SplashScreen.hideAsync();
+    const initApp = async () => {
+      try {
+        const activeSession = await AsyncStorage.getItem('activeSessionId');
+        if (activeSession) {
+          setTimeout(() => {
+            router.replace('/charging_start');
+          }, 100);
+        }
+      } catch (err) {
+        console.log('Error checking session', err);
+      } finally {
+        SplashScreen.hideAsync();
+      }
+    };
+
+    initApp();
   }, []);
 
   return (

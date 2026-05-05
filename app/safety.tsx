@@ -1,8 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, Dimensions, TouchableOpacity, Animated, Easing } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, TouchableOpacity, Animated, Easing, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { startSession } from './services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -51,6 +54,22 @@ const DiagnosticItem = ({ label, status, isCompleted }: { label: string, status:
 export default function SafetyScreen() {
   const router = useRouter();
   const [stage, setStage] = useState(0);
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleStartCharging = async () => {
+    setIsStarting(true);
+    try {
+      const data = await startSession('default_station');
+      const sessionId = data?.session?._id || data?._id || 'active_session';
+      await AsyncStorage.setItem('activeSessionId', sessionId);
+      router.push('/charging_start');
+    } catch (err: any) {
+      console.log('Failed to start session', err);
+      Alert.alert('Error', err.message || 'Failed to start session');
+    } finally {
+      setIsStarting(false);
+    }
+  };
 
   useEffect(() => {
     // Stage-based progression
@@ -111,18 +130,24 @@ export default function SafetyScreen() {
 
           <View style={styles.footer}>
             <TouchableOpacity 
-              disabled={stage < 3}
-              style={[styles.primaryBtn, stage < 3 && styles.primaryBtnDisabled]}
-              onPress={() => router.push('/charging_start')}
+              disabled={stage < 3 || isStarting}
+              style={[styles.primaryBtn, (stage < 3 || isStarting) && styles.primaryBtnDisabled]}
+              onPress={handleStartCharging}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons 
-                  name="flash" 
-                  size={20} 
-                  color={stage < 3 ? "#94A3B8" : "#FFFFFF"} 
-                  style={{ marginRight: 8 }} 
-                />
-                <Text style={[styles.primaryBtnText, stage < 3 && styles.primaryBtnTextDisabled]}>Proceed to Charging</Text>
+                {isStarting ? (
+                  <ActivityIndicator color="#94A3B8" style={{ marginRight: 8 }} />
+                ) : (
+                  <MaterialCommunityIcons 
+                    name="flash" 
+                    size={20} 
+                    color={stage < 3 ? "#94A3B8" : "#FFFFFF"} 
+                    style={{ marginRight: 8 }} 
+                  />
+                )}
+                <Text style={[styles.primaryBtnText, stage < 3 && styles.primaryBtnTextDisabled]}>
+                  {isStarting ? 'Starting...' : 'Start Charging'}
+                </Text>
               </View>
             </TouchableOpacity>
             <Text style={styles.versionText}>DIAGNOSTIC MODE V4.2.1</Text>

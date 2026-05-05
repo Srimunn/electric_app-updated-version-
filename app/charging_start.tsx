@@ -1,18 +1,12 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Dimensions,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { stopSession } from './services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -104,6 +98,7 @@ export default function ChargingStartScreen() {
   const router = useRouter();
   const [percent, setPercent] = useState(56);
   const [isPaused, setIsPaused] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
 
   const batteryBreath = useSharedValue(1);
   const labelPhase = useSharedValue(0);
@@ -137,6 +132,23 @@ export default function ChargingStartScreen() {
       runChargingMicroAnimations();
     }
   }, [isPaused]);
+
+  const handleStopCharging = async () => {
+    setIsStopping(true);
+    try {
+      const sessionId = await AsyncStorage.getItem('activeSessionId');
+      if (sessionId) {
+        await stopSession(sessionId);
+        await AsyncStorage.removeItem('activeSessionId');
+      }
+      router.push({ pathname: '/completed', params: { percent } });
+    } catch (err: any) {
+      console.log('Failed to stop session', err);
+      Alert.alert('Error', err.message || 'Failed to stop session');
+    } finally {
+      setIsStopping(false);
+    }
+  };
 
   const didMountPercent = useRef(false);
   useEffect(() => {
@@ -260,9 +272,13 @@ export default function ChargingStartScreen() {
                 <Ionicons name={isPaused ? "play-circle" : "pause-circle"} size={26} color="#1D4ED8" style={{ marginRight: 8 }} />
                 <Text style={styles.pauseBtnText}>{isPaused ? "Resume Charging" : "Pause Charging"}</Text>
              </TouchableOpacity>
-             <TouchableOpacity style={styles.stopBtn} onPress={() => router.push({ pathname: '/completed', params: { percent } })}>
-                <Ionicons name="stop-circle" size={26} color="#1D4ED8" style={{ marginRight: 8 }} />
-                <Text style={styles.stopBtnText}>Stop Charging</Text>
+             <TouchableOpacity style={styles.stopBtn} onPress={handleStopCharging} disabled={isStopping}>
+                {isStopping ? (
+                   <ActivityIndicator color="#1D4ED8" style={{ marginRight: 8 }} />
+                ) : (
+                   <Ionicons name="stop-circle" size={26} color="#1D4ED8" style={{ marginRight: 8 }} />
+                )}
+                <Text style={styles.stopBtnText}>{isStopping ? 'Stopping...' : 'Stop Charging'}</Text>
              </TouchableOpacity>
           </View>
         </ScrollView>

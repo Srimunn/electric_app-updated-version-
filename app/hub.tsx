@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, ScrollView, Dimensions, Platform } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useMemo, useState } from 'react';
+import { Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -34,7 +34,49 @@ const SLOTS = [
 
 export default function HubScreen() {
   const router = useRouter();
-  const { stationName } = useLocalSearchParams();
+  const params = useLocalSearchParams<{
+    stationName?: string | string[];
+    location?: string | string[];
+    powerOutput?: string | string[];
+    basePricePerKwh?: string | string[];
+    available?: string | string[];
+    total?: string | string[];
+  }>();
+
+  const stationName = useMemo(() => {
+    const raw = params.stationName;
+    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  }, [params.stationName]);
+
+  const stationLocation = useMemo(() => {
+    const raw = params.location;
+    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  }, [params.location]);
+
+  const powerOutput = useMemo(() => {
+    const raw = params.powerOutput;
+    const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+    const parsed = value != null && value !== '' ? Number(value) : NaN;
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [params.powerOutput]);
+
+  const basePricePerKwh = useMemo(() => {
+    const raw = params.basePricePerKwh;
+    const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+    const parsed = value != null && value !== '' ? Number(value) : NaN;
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [params.basePricePerKwh]);
+
+  const availabilityText = useMemo(() => {
+    const rawAvailable = params.available;
+    const rawTotal = params.total;
+    const availableValue = typeof rawAvailable === 'string' ? rawAvailable : Array.isArray(rawAvailable) ? rawAvailable[0] : undefined;
+    const totalValue = typeof rawTotal === 'string' ? rawTotal : Array.isArray(rawTotal) ? rawTotal[0] : undefined;
+    const available = availableValue != null && availableValue !== '' ? Number(availableValue) : NaN;
+    const total = totalValue != null && totalValue !== '' ? Number(totalValue) : NaN;
+    if (Number.isFinite(available) && Number.isFinite(total)) return `${available}/${total} available`;
+    return null;
+  }, [params.available, params.total]);
 
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
 
@@ -63,7 +105,7 @@ export default function HubScreen() {
             <Text style={styles.mainTitle}>{stationName || 'Charging Hub'}</Text>
             <View style={styles.locationRow}>
               <Ionicons name="location" size={18} color="#475569" />
-              <Text style={styles.locationText}>T Nagar, Chennai</Text>
+              <Text style={styles.locationText}>{stationLocation || 'Location details not available'}</Text>
             </View>
             <View style={styles.ratingRow}>
               <Text style={styles.ratingValue}>4.8</Text>
@@ -78,7 +120,7 @@ export default function HubScreen() {
                 <MaterialCommunityIcons name="lightning-bolt" size={22} color="#000000" />
                 <Text style={[styles.metricLabel, { color: '#000000' }]}>POWER</Text>
               </View>
-              <Text style={styles.metricValue}>150 kW</Text>
+              <Text style={styles.metricValue}>{powerOutput != null ? `${powerOutput} kW` : '--'}</Text>
               <Text style={styles.metricSub}>Fast Charging</Text>
             </View>
 
@@ -87,7 +129,7 @@ export default function HubScreen() {
                 <MaterialCommunityIcons name="currency-inr" size={20} color="#64748B" />
                 <Text style={styles.metricLabel}>COST</Text>
               </View>
-              <Text style={styles.metricValue}>₹35</Text>
+              <Text style={styles.metricValue}>{basePricePerKwh != null ? `₹${basePricePerKwh}` : '--'}</Text>
               <Text style={styles.metricSub}>per kWh</Text>
             </View>
 
@@ -143,7 +185,7 @@ export default function HubScreen() {
             </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.slotsCount}>6 slots available now</Text>
+          <Text style={styles.slotsCount}>{availabilityText || 'Slots availability not available'}</Text>
 
           {/* Amenities */}
           <Text style={styles.sectionTitle}>Amenities</Text>

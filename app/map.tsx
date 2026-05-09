@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
-import { useVehicle } from '../context/VehicleContext';
-import { Dimensions, Keyboard, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, Keyboard, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Svg, { Line, Path, Rect } from 'react-native-svg';
+import type { MapViewType } from '../components/MapProvider';
+import MapView, { Marker } from '../components/MapProvider';
+import { API_BASE_URL } from '../constants/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -73,55 +75,266 @@ const SAMPLE_LOCATIONS = {
   'ooty': { latitude: 11.4064, longitude: 76.6932 },
   'kodaikanal': { latitude: 10.2381, longitude: 77.4892 },
   'yelagiri': { latitude: 12.5768, longitude: 78.6385 },
-  'ootacamund': { latitude: 11.4064, longitude: 76.6932 },  
+  'ootacamund': { latitude: 11.4064, longitude: 76.6932 },
+  'erode zeon': { latitude: 11.3500, longitude: 77.7120 },
+  'iocl station': { latitude: 10.73828, longitude: 77.53223 },
+  'statiq station': { latitude: 11.34977, longitude: 77.732824 },
 } as any;
-
-// Automatically generate 2 spots per location
-const GENERATED_STATIONS = Object.keys(SAMPLE_LOCATIONS).flatMap((city, index) => {
-  const loc = SAMPLE_LOCATIONS[city];
-  return [
-    {
-      id: `spot-a-${index}`,
-      name: `${city.charAt(0).toUpperCase() + city.slice(1)} EV Hub A`,
-      latitude: loc.latitude + 0.005,
-      longitude: loc.longitude + 0.005,
-      available: Math.floor(Math.random() * 10),
-      total: 10,
-      type: 'Supercharger'
-    },
-    {
-      id: `spot-b-${index}`,
-      name: `${city.charAt(0).toUpperCase() + city.slice(1)} Power Station B`,
-      latitude: loc.latitude - 0.005,
-      longitude: loc.longitude - 0.005,
-      available: Math.floor(Math.random() * 5),
-      total: 5,
-      type: 'Fast'
-    }
-  ];
-});
-
-const CHARGING_STATIONS = [
-  { id: '1', name: 'Downtown Charging Hub', latitude: 13.0827, longitude: 80.2707, available: 8, total: 10, type: 'Supercharger' },
-  { id: '2', name: 'West Side EV Point', latitude: 13.0750, longitude: 80.2500, available: 3, total: 5, type: 'Fast' },
-  ...GENERATED_STATIONS
-];
 
 const FILTERS = ['Available'];
 
+type MapStation = {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  available: number;
+  total: number;
+  type: string;
+  location?: string;
+  powerOutput?: number;
+  basePricePerKwh?: number;
+};
+
+const normalizeLocationKey = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+const LOCATION_COORDS: Record<string, { latitude: number; longitude: number }> = {
+  [normalizeLocationKey('Reliance Mall, Perundurai Road, Teachers Colony, Erode')]: {
+    latitude: 11.3500,
+    longitude: 77.7120,
+  },
+  [normalizeLocationKey('PGCH PPM, SH 37, Dharapuram South Erode')]: {
+    latitude: 10.73828,
+    longitude: 77.53223,
+  },
+  [normalizeLocationKey('Showroom Parking 396, Ashokapuram, PS, Bhavani Main Rd, near Devi Mahal Erode')]: {
+    latitude: 11.34977,
+    longitude: 77.732824,
+  },
+};
+
+const getCoordsFromLocation = (locationText: string | undefined, index: number) => {
+  const fallback = {
+    latitude: 11.3410 + ((index % 8) - 4) * 0.01, // Default to Erode area
+    longitude: 77.7172 + ((index % 6) - 3) * 0.01,
+  };
+
+  if (!locationText) return fallback;
+  const normalized = normalizeLocationKey(locationText);
+  const exact = LOCATION_COORDS[normalized];
+  if (exact) {
+    return {
+      latitude: exact.latitude + ((index % 7) - 3) * 0.0015,
+      longitude: exact.longitude + ((index % 7) - 3) * 0.0015,
+    };
+  }
+  const lower = locationText.toLowerCase();
+  
+  // Try to find a city match in the address
+  const matchedCity = Object.keys(SAMPLE_LOCATIONS).find((city) => {
+    const cityLower = city.toLowerCase();
+    // Check if city is a standalone word or part of the address
+    const regex = new RegExp(`\\b${cityLower}\\b`, 'i');
+    return regex.test(lower);
+  });
+
+  if (!matchedCity) return fallback;
+  const base = SAMPLE_LOCATIONS[matchedCity];
+  
+  // Apply a small deterministic offset so markers don't overlap perfectly
+  return {
+    latitude: base.latitude + ((index % 7) - 3) * 0.004,
+    longitude: base.longitude + ((index % 7) - 3) * 0.004,
+  };
+};
+
+const ChargerIcon = ({
+  size,
+  color,
+}: {
+  size: number;
+  color: string;
+}) => {
+  const strokeWidth = Math.max(2, Math.round(size * 0.08));
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <Rect
+        x="14"
+        y="8"
+        width="26"
+        height="48"
+        rx="6"
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+      <Path
+        d="M28 20 L22 32 H30 L24 44"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M40 22 C50 22 52 28 52 32 C52 36 50 42 44 44"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Rect
+        x="46"
+        y="40"
+        width="10"
+        height="10"
+        rx="3"
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+      <Line
+        x1="49"
+        y1="38"
+        x2="49"
+        y2="34"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Line
+        x1="53"
+        y1="38"
+        x2="53"
+        y2="34"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+};
+
 export default function MapScreen() {
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
-  const { vehicleName } = useLocalSearchParams();
-  const { selectedVehicleName } = useVehicle();
+  const mapRef = useRef<MapViewType>(null);
   const [selectedFilter, setSelectedFilter] = useState('Available');
   const [isLiked, setIsLiked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [stations, setStations] = useState<MapStation[]>([]);
+  const [selectedStation, setSelectedStation] = useState<MapStation | null>(null);
+  const [searchPin, setSearchPin] = useState<{ latitude: number; longitude: number; title: string } | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  // Initial region
+  // Simulated User Location (Near Erode for the requested address)
+  const userLocation = {
+    latitude: 11.3410,
+    longitude: 77.7172,
+  };
+
+  useEffect(() => {
+    const loadStations = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/stations/debug`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) return;
+
+        const mapped: MapStation[] = data.map((station: any, index: number) => {
+          const lat = station.latitude || station.lat || station.coords?.latitude;
+          const lon = station.longitude || station.lng || station.coords?.longitude;
+
+          const hasExactCoords =
+            lat && lon &&
+            !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon));
+
+          const coords = hasExactCoords
+            ? {
+                latitude: parseFloat(lat),
+                longitude: parseFloat(lon),
+              }
+            : getCoordsFromLocation(station.location || station.address || station.place, index);
+
+          const name = station.name || station.bunkName || station.stationName || `Station ${index + 1}`;
+          const location = station.location || station.address || station.bunkLocation || 'Location details not available';
+
+          const ports = Number(station.ports || station.slots || 1);
+          const power = Number(station.powerOutput || station.kw || station.speed || 60);
+          const price = Number(station.basePricePerKwh || station.price || station.cost || 18);
+
+          return {
+            id: String(station._id || station.id || index),
+            name,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            available: station.status === 'offline' ? 0 : (station.availablePorts || ports),
+            total: ports,
+            type: power ? `${power} kW` : 'Fast',
+            location,
+            powerOutput: power,
+            basePricePerKwh: price,
+          };
+        });
+
+        setStations(mapped);
+        
+        // Automatically select and center on the first station from the API
+        if (mapped.length > 0) {
+          const firstStation = mapped[0];
+          setSelectedStation(firstStation);
+          
+          // Use a small delay to ensure the map component is ready before animating
+          setTimeout(() => {
+            if (mapRef.current) {
+              mapRef.current.animateToRegion({
+                latitude: firstStation.latitude,
+                longitude: firstStation.longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              }, 1000);
+            }
+          }, 800);
+        }
+      } catch (err) {
+        console.log('Station sync failed:', err);
+      }
+    };
+
+    loadStations();
+  }, []);
+
+  const featuredStation = selectedStation || stations[0];
+
+  const handleNavigate = () => {
+    if (featuredStation) {
+      setIsNavigating(true);
+      
+      // Zoom into the route
+      mapRef.current?.animateToRegion({
+        latitude: (userLocation.latitude + featuredStation.latitude) / 2,
+        longitude: (userLocation.longitude + featuredStation.longitude) / 2,
+        latitudeDelta: Math.max(Math.abs(userLocation.latitude - featuredStation.latitude) * 1.5, 0.02),
+        longitudeDelta: Math.max(Math.abs(userLocation.longitude - featuredStation.longitude) * 1.5, 0.02),
+      }, 1000);
+    }
+  };
+
+  const handleMarkerPress = (station: MapStation) => {
+    setSelectedStation(station);
+    setSearchPin(null);
+    setIsNavigating(false); // Reset navigation view when selecting a new marker
+    mapRef.current?.animateToRegion({
+      latitude: station.latitude,
+      longitude: station.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 600);
+  };
+
+  // Initial region centered on the requested Erode address
   const initialRegion = {
-    latitude: 13.0827,
-    longitude: 80.2707,
+    latitude: 11.3500,
+    longitude: 77.7120,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   };
@@ -129,7 +342,32 @@ export default function MapScreen() {
   const handleSearch = () => {
     Keyboard.dismiss();
     const query = searchQuery.toLowerCase().trim();
+    if (!query) return;
+
+    // 1. Search in API stations first (Name or Location match)
+    const matchedStation = stations.find(s => 
+      s.name.toLowerCase().includes(query) || 
+      (s.location && s.location.toLowerCase().includes(query))
+    );
+
+    if (matchedStation) {
+      handleMarkerPress(matchedStation);
+      return;
+    }
+
+    // 2. Search for city in API stations (if user typed just a city name)
+    const cityMatchedStation = stations.find(s => 
+      s.location && s.location.toLowerCase().split(/[,\s]+/).some(word => word === query)
+    );
+
+    if (cityMatchedStation) {
+      handleMarkerPress(cityMatchedStation);
+      return;
+    }
+
+    // 3. Fallback to predefined city coordinates if no specific station matches
     if (SAMPLE_LOCATIONS[query]) {
+      setSearchPin({ ...SAMPLE_LOCATIONS[query], title: query });
       mapRef.current?.animateToRegion({
         ...SAMPLE_LOCATIONS[query],
         latitudeDelta: 0.05,
@@ -147,17 +385,41 @@ export default function MapScreen() {
         ref={mapRef}
         style={styles.map}
         initialRegion={initialRegion}
-        provider={PROVIDER_GOOGLE}
       >
-        {CHARGING_STATIONS.map((station) => (
+        {/* User Current Location Marker */}
+        <Marker coordinate={userLocation} title="Your Location">
+          <View style={styles.userMarker}>
+            <Ionicons name="navigate" size={18} color="#FFFFFF" />
+          </View>
+        </Marker>
+
+        {!!searchPin && (
+          <Marker
+            coordinate={{ latitude: searchPin.latitude, longitude: searchPin.longitude }}
+            title={searchPin.title}
+            onPress={() => setSearchPin(null)}
+          >
+            <View style={styles.markerContainer}>
+              <View style={styles.customMarkerWrapper}>
+                <Ionicons name="location-sharp" size={28} color="#EF4444" />
+              </View>
+              <View style={styles.markerPointer} />
+            </View>
+          </Marker>
+        )}
+
+        {stations.map((station) => (
           <Marker
             key={station.id}
             coordinate={{ latitude: station.latitude, longitude: station.longitude }}
             title={station.name}
+            onPress={() => handleMarkerPress(station)}
           >
-            <View style={[station.available === 0 && styles.markerInactive]}>
-              <Ionicons name="location-outline" size={20} color="#000000" />
-              <View/>
+            <View style={styles.markerContainer}>
+              <View style={styles.customMarkerWrapper}>
+                <Ionicons name="location-sharp" size={28} color="#0D7FF2" />
+              </View>
+              <View style={styles.markerPointer} />
             </View>
           </Marker>
         ))}
@@ -232,10 +494,19 @@ export default function MapScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.carTitle}>{selectedVehicleName || vehicleName || 'Tata Nexon EV'}</Text>
+          <View style={styles.titleWithIcon}>
+            <Text style={styles.stationTitle}>{featuredStation?.name || 'Charging Hub'}</Text>
+            <View style={styles.cardStationIcon}>
+              <ChargerIcon size={32} color="#0D7FF2" />
+            </View>
+          </View>
           <View style={styles.locationInfo}>
-            <Ionicons name="location" size={14} color="#94A3B8" />
-            <Text style={styles.locationText}>1.2 km away • 8/10 available</Text>
+            <Ionicons name="location" size={16} color="#94A3B8" />
+            <Text style={styles.locationText}>
+              {featuredStation
+                ? `${featuredStation.location || 'Chennai'} • ${featuredStation.available}/${featuredStation.total} available`
+                : 'Select a station'}
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -243,24 +514,44 @@ export default function MapScreen() {
           <View style={styles.specRow}>
             <View style={styles.specItem}>
               <Text style={styles.specLabel}>PRICE</Text>
-              <Text style={styles.specValue}>28.75/kWh</Text>
+              <Text style={styles.specValue}>
+                {featuredStation?.basePricePerKwh ? `₹${featuredStation.basePricePerKwh}/kWh` : '--'}
+              </Text>
             </View>
             <View style={styles.verticalDivider} />
             <View style={styles.specItem}>
               <Text style={styles.specLabel}>SPEED</Text>
-              <Text style={styles.specValue}>250 kW</Text>
+              <Text style={styles.specValue}>
+                {featuredStation?.powerOutput ? `${featuredStation.powerOutput} kW` : '--'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.actionRow}>
             <TouchableOpacity 
               style={styles.navigateBtn}
-              onPress={() => router.push({ pathname: '/hub', params: { stationName: 'Charging Hub' } })}
+              onPress={handleNavigate}
             >
               <Ionicons name="navigate" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.navigateText}>Navigate</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.infoBtn}>
+            <TouchableOpacity
+              style={styles.infoBtn}
+              onPress={() => {
+                if (!featuredStation) return;
+                router.push({
+                  pathname: '/hub',
+                  params: {
+                    stationName: featuredStation.name,
+                    location: featuredStation.location ?? '',
+                    powerOutput: featuredStation.powerOutput != null ? String(featuredStation.powerOutput) : '',
+                    basePricePerKwh: featuredStation.basePricePerKwh != null ? String(featuredStation.basePricePerKwh) : '',
+                    available: String(featuredStation.available),
+                    total: String(featuredStation.total),
+                  },
+                });
+              }}
+            >
               <Ionicons name="information-circle-outline" size={24} color="#1E293B" />
             </TouchableOpacity>
           </View>
@@ -299,9 +590,93 @@ const styles = StyleSheet.create({
     width: width,
     height: height,
   },
-  markerInactive: {
-    backgroundColor: '#E2E8F0',
-    borderColor: '#F8FAFC',
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 60,
+    height: 70,
+  },
+  customMarkerWrapper: {
+    backgroundColor: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    borderWidth: 2,
+    borderColor: '#0D7FF2',
+    zIndex: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      web: {
+        boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.3)',
+      }
+    })
+  },
+  customMarkerImage: {
+    width: 28,
+    height: 28,
+  },
+  professionalMarker: {
+    backgroundColor: '#0D7FF2',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    zIndex: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      web: {
+        boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.3)',
+      }
+    })
+  },
+  iconCircle: {
+    backgroundColor: '#FFFFFF',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  markerPointer: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF',
+    transform: [{ rotate: '180deg' }],
+    marginTop: -2,
+    zIndex: 1,
+  },
+  userMarker: {
+    backgroundColor: '#0D7FF2',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 5,
   },
   floatingHeader: {
     position: 'absolute',
@@ -321,10 +696,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+      },
+      web: {
+        boxShadow: '0px 5px 10px rgba(0, 0, 0, 0.1)',
+      }
+    })
   },
   searchInput: {
     flex: 1,
@@ -347,10 +729,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginRight: 10,
     elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      web: {
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+      }
+    })
   },
   activeFilterChip: {
     backgroundColor: '#0D7FF2',
@@ -375,10 +764,17 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     padding: 20,
     elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      },
+      web: {
+        boxShadow: '0px -10px 20px rgba(0, 0, 0, 0.1)',
+      }
+    })
   },
   cardHeader: {
     flexDirection: 'row',
@@ -412,21 +808,37 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     marginLeft: 4,
   },
-  carTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 6,
+  titleWithIcon: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  cardStationIcon: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stationTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#0F172A',
+    flex: 1,
   },
   locationInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    paddingRight: 20,
   },
   locationText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#64748B',
-    marginLeft: 6,
+    marginLeft: 4,
     fontWeight: '600',
+    lineHeight: 20,
+    flex: 1,
   },
   divider: {
     height: 1,
@@ -441,16 +853,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   specLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: '#94A3B8',
-    letterSpacing: 1,
-    marginBottom: 6,
+    letterSpacing: 1.2,
+    marginBottom: 4,
   },
   specValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1E293B',
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
   },
   verticalDivider: {
     width: 1,
@@ -472,10 +884,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#0D7FF2',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0D7FF2',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      web: {
+        boxShadow: '0px 6px 10px rgba(13, 127, 242, 0.3)',
+      }
+    })
   },
   navigateText: {
     fontSize: 18,

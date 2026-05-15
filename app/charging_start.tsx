@@ -1,10 +1,11 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { stopSession } from './services/api';
+import { useRealtime } from '../context/RealtimeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import Animated, {
@@ -96,13 +97,67 @@ function BatteryGlyph({
 
 export default function ChargingStartScreen() {
   const router = useRouter();
-  const [percent, setPercent] = useState(56);
+  const params = useLocalSearchParams<{ sessionId?: string, stationId?: string, stationName?: string }>();
+  const { lastUpdate, joinStation, leaveStation } = useRealtime();
+  
+  const [percent, setPercent] = useState(0);
+  const [stats, setStats] = useState({
+    power: 0,
+    voltage: 0,
+    current: 0,
+    temperature: 0,
+    energy: 0,
+  });
+  
   const [isPaused, setIsPaused] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState(0);
 
   const batteryBreath = useSharedValue(1);
   const labelPhase = useSharedValue(0);
   const percentPop = useSharedValue(1);
+
+  // Join station room for real-time updates
+  useEffect(() => {
+    if (params.stationId) {
+      joinStation(params.stationId);
+    }
+    return () => {
+      if (params.stationId) {
+        leaveStation(params.stationId);
+      }
+    };
+  }, [params.stationId]);
+
+  // Handle real-time updates
+  useEffect(() => {
+    if (lastUpdate && lastUpdate.stationId === params.stationId) {
+      setStats({
+        power: lastUpdate.power || 0,
+        voltage: lastUpdate.voltage || 0,
+        current: lastUpdate.current || 0,
+        temperature: lastUpdate.temperature || 0,
+        energy: lastUpdate.energyConsumed || 0,
+      });
+      // Logic for battery percentage (mocked or from telemetry if available)
+      if (lastUpdate.soc !== undefined) {
+        setPercent(lastUpdate.soc);
+      } else {
+        // Increment slowly if not provided
+        setPercent(prev => Math.min(100, prev + (isPaused ? 0 : 0.1)));
+      }
+    }
+  }, [lastUpdate, isPaused]);
+
+  // Session duration timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!isPaused) {
+        setSessionDuration(prev => prev + 1);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isPaused]);
 
   const runChargingMicroAnimations = () => {
     cancelAnimation(batteryBreath);
@@ -136,15 +191,16 @@ export default function ChargingStartScreen() {
   const handleStopCharging = async () => {
     setIsStopping(true);
     try {
-      const sessionId = await AsyncStorage.getItem('activeSessionId');
+      const sessionId = params.sessionId || await AsyncStorage.getItem('activeSessionId');
       if (sessionId) {
         await stopSession(sessionId);
         await AsyncStorage.removeItem('activeSessionId');
+        await AsyncStorage.removeItem('activeStationId');
       }
-      router.push({ pathname: '/completed', params: { percent } });
+      router.replace({ pathname: '/completed', params: { percent: Math.round(percent), energy: stats.energy.toFixed(2) } });
     } catch (err: any) {
       console.log('Failed to stop session', err);
-      Alert.alert('Error', err.message || 'Failed to stop session');
+      Alert.alert('Error', err.response?.data?.message || 'Failed to stop session');
     } finally {
       setIsStopping(false);
     }
@@ -162,30 +218,6 @@ export default function ChargingStartScreen() {
     );
   }, [percent, percentPop]);
 
-  // Simulate charging progress if not paused
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isPaused) {
-        setPercent(prev => {
-          if (prev < 100) {
-            const next = prev + 1;
-            return next;
-          }
-          return prev;
-        });
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [isPaused]);
-
-  useEffect(() => {
-    return () => {
-      cancelAnimation(batteryBreath);
-      cancelAnimation(labelPhase);
-    };
-  }, [batteryBreath, labelPhase]);
-
   const batteryWrapStyle = useAnimatedStyle(() => ({
     transform: [{ scale: batteryBreath.value }],
   }));
@@ -198,6 +230,12 @@ export default function ChargingStartScreen() {
     opacity: interpolate(labelPhase.value, [0, 0.5, 1], [0.45, 1, 0.45]),
   }));
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -208,6 +246,7 @@ export default function ChargingStartScreen() {
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={26} color="#1E293B" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Active Session</Text>
           <TouchableOpacity style={styles.settingsBtn}>
             <Ionicons name="settings-sharp" size={24} color="#1E293B" />
           </TouchableOpacity>
@@ -218,52 +257,52 @@ export default function ChargingStartScreen() {
             <View style={styles.carLogoContainer}>
                <Image source={require('../assets/images/nexon.png')} style={styles.carLogo} resizeMode="cover" />
             </View>
-            <Text style={styles.carName}>Tata Nexon EV</Text>
+            <Text style={styles.carName}>{params.stationName || 'EV Charging Station'}</Text>
             <View style={styles.chargingBadge}>
               <Text style={styles.chargingBadgeText}>Charging in progress</Text>
             </View>
             <View style={styles.activeRow}>
               <View style={[styles.activeDot, { backgroundColor: isPaused ? '#94A3B8' : '#3B82F6' }]} />
-              <Text style={styles.activeText}>{isPaused ? 'Passed' : 'Active'}</Text>
+              <Text style={styles.activeText}>{isPaused ? 'Paused' : 'Active'}</Text>
             </View>
           </View>
 
           <View style={styles.chipsContainer}>
-            <StatusChip icon="checkmark-circle-outline" label="ALIGNMENT: OK" color="#6366F1" />
-            <StatusChip icon="shield-checkmark-outline" label="FOD: OK" color="#6366F1" />
+            <StatusChip icon="flash-outline" label={`${stats.voltage.toFixed(1)}V`} color="#6366F1" />
+            <StatusChip icon="analytics-outline" label={`${stats.current.toFixed(1)}A`} color="#6366F1" />
           </View>
           <View style={{ alignItems: 'center', marginTop: 12 }}>
-            <StatusChip icon="thermometer" label="THERMAL: OK" color="#0D7FF2" />
+            <StatusChip icon="thermometer" label={`TEMP: ${stats.temperature.toFixed(1)}°C`} color="#0D7FF2" />
           </View>
 
           <View style={styles.progressSection}>
             <View style={styles.ringContainer}>
               <View style={styles.centerHub}>
                 <Animated.View style={[styles.centerBatteryWrap, batteryWrapStyle]}>
-                  <BatteryGlyph percent={percent} percentRowAnimatedStyle={percentRowStyle} />
+                  <BatteryGlyph percent={Math.round(percent)} percentRowAnimatedStyle={percentRowStyle} />
                 </Animated.View>
                 <Animated.View style={chargingLabelStyle}>
-                  <Text style={styles.chargingLabel}>CHARGING</Text>
+                  <Text style={styles.chargingLabel}>{isPaused ? 'PAUSED' : 'CHARGING'}</Text>
                 </Animated.View>
               </View>
             </View>
           </View>
 
           <View style={styles.statsGrid}>
-            <StatItem icon="flash" value="150 kW" label="POWER" />
-            <StatItem icon="car-electric" value="150 kW" label="USED" />
-            <StatItem icon="clock-outline" value="10 min" label="LEFT" />
+            <StatItem icon="flash" value={`${stats.power.toFixed(2)} kW`} label="LIVE POWER" />
+            <StatItem icon="lightning-bolt" value={`${stats.energy.toFixed(2)} kWh`} label="ENERGY" />
+            <StatItem icon="clock-outline" value={formatTime(sessionDuration)} label="DURATION" />
           </View>
 
           <View style={styles.summaryCard}>
              <View style={styles.summaryCol}>
                 <Text style={styles.summaryLabel}>Estimated Cost</Text>
-                <Text style={styles.summaryValue}>₹450.00</Text>
+                <Text style={styles.summaryValue}>₹{(stats.energy * 15).toFixed(2)}</Text>
              </View>
              <View style={styles.divider} />
              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Session Duration</Text>
-                <Text style={styles.summaryValue}>4 min</Text>
+                <Text style={styles.summaryLabel}>Station ID</Text>
+                <Text style={styles.summaryValue}>{params.stationId?.slice(-6) || 'N/A'}</Text>
              </View>
           </View>
 
@@ -356,10 +395,12 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   carName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
     color: '#1E293B',
     marginTop: 14,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   chargingBadge: {
     backgroundColor: '#DBEAFE',

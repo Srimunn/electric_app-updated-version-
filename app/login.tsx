@@ -21,15 +21,6 @@ export default function LoginScreen() {
   const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
   const handleLogin = async () => {
-    // Demo Login Bypass
-    if (email.trim() === 'demo@example.com' && password === 'password') {
-      setIsLoading(true);
-      await AsyncStorage.setItem('userToken', 'demo-token');
-      await AsyncStorage.setItem('userData', JSON.stringify({ name: 'Demo User', email: 'demo@example.com' }));
-      router.replace('/selection');
-      return;
-    }
-
     if (!isValidEmail(email.trim())) {
       setError('Enter a valid email');
       return;
@@ -53,10 +44,8 @@ export default function LoginScreen() {
       }
     } catch (err: any) {
       console.log('Login error:', err);
-      // Fallback message for tunnel issues
-      const msg = typeof err === 'string' && err.includes('<html>') 
-        ? 'Server connection error (Tunnel issue). Try demo@example.com / password'
-        : (err.message || 'Invalid credentials or network error');
+      const backendError = err.response?.data?.error || err.response?.data?.message;
+      const msg = backendError || (err.message || 'Invalid credentials or network error');
       setError(msg);
     } finally {
       setIsLoading(false);

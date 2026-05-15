@@ -1,10 +1,12 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, Dimensions, TouchableOpacity, ScrollView, Modal, Pressable } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, Text, View, Image, Dimensions, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useVehicle } from '../context/VehicleContext';
+import { getStations, SERVER_URL } from './services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -20,6 +22,31 @@ export default function HomeScreen() {
   const { vehicleName } = useLocalSearchParams();
   const { selectedVehicleName } = useVehicle();
   const [showNotification, setShowNotification] = useState(false);
+  const [nearestStation, setNearestStation] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchHomeData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getStations();
+      if (data && data.length > 0) {
+        // For now, just pick the first one as "nearest"
+        setNearestStation(data[0]);
+      } else {
+        setNearestStation(null);
+      }
+    } catch (err) {
+      console.error('Home fetch error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchHomeData();
+    }, [fetchHomeData])
+  );
 
   return (
     <View style={styles.container}>
@@ -75,21 +102,36 @@ export default function HomeScreen() {
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Nearest Station</Text>
-              <View style={styles.availableBadge}>
-                <Text style={styles.availableBadgeText}>AVAILABLE</Text>
-              </View>
+              {nearestStation && (
+                <View style={[styles.availableBadge, { backgroundColor: nearestStation.status === 'online' ? '#10B981' : '#EF4444' }]}>
+                  <Text style={styles.availableBadgeText}>{nearestStation.status?.toUpperCase() || 'OFFLINE'}</Text>
+                </View>
+              )}
             </View>
 
-            <View style={styles.stationInfoRow}>
-              <View style={styles.stationIconBox}>
-                <MaterialCommunityIcons name="flash-outline" size={30} color="#0D7FF2" />
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#0D7FF2" style={{ marginVertical: 20 }} />
+            ) : nearestStation ? (
+              <View style={styles.stationInfoRow}>
+                <View style={styles.stationIconBox}>
+                  {nearestStation.image ? (
+                    <Image 
+                      source={{ uri: nearestStation.image.startsWith('http') ? nearestStation.image : `${SERVER_URL}${nearestStation.image}` }} 
+                      style={{ width: '100%', height: '100%', borderRadius: 20 }}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons name="flash-outline" size={30} color="#0D7FF2" />
+                  )}
+                </View>
+                <View style={styles.stationTextContent}>
+                  <Text style={styles.stationName} numberOfLines={1}>{nearestStation.name || nearestStation.stationName}</Text>
+                  <Text style={styles.stationMeta} numberOfLines={1}>{nearestStation.location}</Text>
+                  <Text style={styles.stationTiming}>{nearestStation.powerOutput} kW • {nearestStation.connectorType || 'Type 2'}</Text>
+                </View>
               </View>
-              <View style={styles.stationTextContent}>
-                <Text style={styles.stationName}>Downtown Charging Hub</Text>
-                <Text style={styles.stationMeta}>1.2 km away • 150 kW</Text>
-                <Text style={styles.stationTiming}>~25 min to full charge</Text>
-              </View>
-            </View>
+            ) : (
+              <Text style={{ textAlign: 'center', color: '#94A3B8', marginVertical: 10 }}>No stations found nearby</Text>
+            )}
 
             <TouchableOpacity 
               style={styles.secondaryActionBtn}

@@ -1,18 +1,14 @@
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform, ActivityIndicator, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { startSession, getImageUrl } from './services/api';
+import { useRealtime } from '../context/RealtimeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
-
-/**
- * BRAND COLORS:
- * Grey: #DADBDF
- * Blue: #0D7FF2
- * Black/White
- */
 
 const AMENITIES = [
   { id: '1', name: 'Free Parking', icon: 'alpha-p-box', color: '#0D7FF2' },
@@ -22,91 +18,91 @@ const AMENITIES = [
   { id: '5', name: 'Shopping', icon: 'shopping', color: '#DB2777' },
 ];
 
-const SLOTS = [
-  { id: 1, available: true },
-  { id: 2, available: true },
-  { id: 3, available: false },
-  { id: 4, available: true },
-  { id: 5, available: true },
-  { id: 6, available: false },
-  { id: 7, available: true },
-  { id: 8, available: true },
-];
-
 export default function HubScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
-    stationName?: string | string[];
-    location?: string | string[];
-    powerOutput?: string | string[];
-    basePricePerKwh?: string | string[];
-    available?: string | string[];
-    total?: string | string[];
+    stationId?: string;
+    stationName?: string;
+    location?: string;
+    powerOutput?: string;
+    basePricePerKwh?: string;
+    available?: string;
+    total?: string;
+    image?: string;
+    connectorType?: string;
+    status?: string;
   }>();
 
-  const stationName = useMemo(() => {
-    const raw = params.stationName;
-    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
-  }, [params.stationName]);
-
-  const stationLocation = useMemo(() => {
-    const raw = params.location;
-    return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
-  }, [params.location]);
-
-  const powerOutput = useMemo(() => {
-    const raw = params.powerOutput;
-    const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
-    const parsed = value != null && value !== '' ? Number(value) : NaN;
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [params.powerOutput]);
-
-  const basePricePerKwh = useMemo(() => {
-    const raw = params.basePricePerKwh;
-    const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
-    const parsed = value != null && value !== '' ? Number(value) : NaN;
-    return Number.isFinite(parsed) ? parsed : null;
-  }, [params.basePricePerKwh]);
-
-  const availabilityText = useMemo(() => {
-    const rawAvailable = params.available;
-    const rawTotal = params.total;
-    const availableValue = typeof rawAvailable === 'string' ? rawAvailable : Array.isArray(rawAvailable) ? rawAvailable[0] : undefined;
-    const totalValue = typeof rawTotal === 'string' ? rawTotal : Array.isArray(rawTotal) ? rawTotal[0] : undefined;
-    const available = availableValue != null && availableValue !== '' ? Number(availableValue) : NaN;
-    const total = totalValue != null && totalValue !== '' ? Number(totalValue) : NaN;
-    if (Number.isFinite(available) && Number.isFinite(total)) return `${available}/${total} available`;
-    return null;
-  }, [params.available, params.total]);
-
+  const { stationsStatus } = useRealtime();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+
+  const stationId = params.stationId as string;
+  const currentStatus = stationsStatus[stationId] || params.status || 'offline';
+  const isOnline = currentStatus.toLowerCase() === 'online' || currentStatus.toLowerCase() === 'available';
+
+  const SLOTS = useMemo(() => {
+    const total = Number(params.total) || 4;
+    return Array.from({ length: total }, (_, i) => ({
+      id: i + 1,
+      available: isOnline && i === 0 // Mocking first slot available if station is online
+    }));
+  }, [params.total, isOnline]);
+
+  const handleStartCharging = async () => {
+    if (!isOnline) {
+      Alert.alert('Station Offline', 'This station is currently offline or busy.');
+      return;
+    }
+
+    setIsStarting(true);
+    try {
+      const response = await startSession(stationId);
+      // Backend returns the session object directly (not wrapped in response.session)
+      const sessionId = response._id || response.session?._id;
+      if (sessionId) {
+        await AsyncStorage.setItem('activeSessionId', sessionId);
+        await AsyncStorage.setItem('activeStationId', stationId);
+        router.push({
+          pathname: '/charging_start',
+          params: {
+            sessionId: sessionId,
+            stationId: stationId,
+            stationName: params.stationName,
+          }
+        });
+      } else {
+        Alert.alert('Error', 'Session was created but could not navigate. Please check your active sessions.');
+      }
+    } catch (err: any) {
+      console.error('Failed to start session:', err);
+      Alert.alert('Error', err.response?.data?.message || 'Failed to start charging session.');
+    } finally {
+      setIsStarting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
-      {/* Top Background Pattern aligned with Home */}
       <View style={styles.topCurvedBg} />
 
       <SafeAreaView style={styles.safeArea}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          
-          {/* Header Overlay */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={24} color="#1E293B" />
             </TouchableOpacity>
-            <View style={styles.availableBadge}>
-              <Text style={styles.availableBadgeText}>AVAILABLE</Text>
+            <View style={[styles.availableBadge, { backgroundColor: isOnline ? '#0D7FF2' : '#EF4444' }]}>
+              <Text style={styles.availableBadgeText}>{currentStatus.toUpperCase()}</Text>
             </View>
           </View>
 
-          {/* Title Section */}
           <View style={styles.titleSection}>
-            <Text style={styles.mainTitle}>{stationName || 'Charging Hub'}</Text>
+            <Text style={styles.mainTitle}>{params.stationName || 'Charging Hub'}</Text>
             <View style={styles.locationRow}>
               <Ionicons name="location" size={18} color="#475569" />
-              <Text style={styles.locationText}>{stationLocation || 'Location details not available'}</Text>
+              <Text style={styles.locationText}>{params.location || 'Location details not available'}</Text>
             </View>
             <View style={styles.ratingRow}>
               <Text style={styles.ratingValue}>4.8</Text>
@@ -114,14 +110,21 @@ export default function HubScreen() {
             </View>
           </View>
 
-          {/* Metrics Cards Grid */}
+          <View style={styles.imageSection}>
+             <Image 
+                source={{ uri: getImageUrl(params.image as string) || 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?q=80&w=400' }} 
+                style={styles.stationImage}
+                resizeMode="cover"
+             />
+          </View>
+
           <View style={styles.metricsGrid}>
             <View style={[styles.metricCard, styles.metricCardBlue]}>
               <View style={styles.metricHeader}>
-                <MaterialCommunityIcons name="lightning-bolt" size={22} color="#000000" />
-                <Text style={[styles.metricLabel, { color: '#000000' }]}>POWER</Text>
+                <MaterialCommunityIcons name="lightning-bolt" size={22} color="#0D7FF2" />
+                <Text style={[styles.metricLabel, { color: '#0D7FF2' }]}>POWER</Text>
               </View>
-              <Text style={styles.metricValue}>{powerOutput != null ? `${powerOutput} kW` : '--'}</Text>
+              <Text style={styles.metricValue}>{params.powerOutput ? `${params.powerOutput} kW` : '--'}</Text>
               <Text style={styles.metricSub}>Fast Charging</Text>
             </View>
 
@@ -130,71 +133,63 @@ export default function HubScreen() {
                 <MaterialCommunityIcons name="currency-inr" size={20} color="#64748B" />
                 <Text style={styles.metricLabel}>COST</Text>
               </View>
-              <Text style={styles.metricValue}>{basePricePerKwh != null ? `₹${basePricePerKwh}` : '--'}</Text>
+              <Text style={styles.metricValue}>{params.basePricePerKwh ? `₹${params.basePricePerKwh}` : '--'}</Text>
               <Text style={styles.metricSub}>per kWh</Text>
             </View>
 
             <View style={styles.metricCard}>
               <View style={styles.metricHeader}>
                 <Ionicons name="time-outline" size={20} color="#64748B" />
-                <Text style={styles.metricLabel}>EST. TIME</Text>
+                <Text style={styles.metricLabel}>CONNECTOR</Text>
               </View>
-              <Text style={styles.metricValue}>~25</Text>
-              <Text style={styles.metricSub}>minutes</Text>
+              <Text style={styles.metricValue}>{params.connectorType || 'Type 2'}</Text>
+              <Text style={styles.metricSub}>Universal</Text>
             </View>
 
             <View style={[styles.metricCard, styles.metricCardBlue]}>
               <View style={styles.metricHeader}>
                 <Ionicons name="navigate-outline" size={20} color="#0D7FF2" />
-                <Text style={[styles.metricLabel, { color: '#0D7FF2' }]}>DISTANCE</Text>
+                <Text style={[styles.metricLabel, { color: '#0D7FF2' }]}>SLOTS</Text>
               </View>
-              <Text style={styles.metricValue}>1.2</Text>
-              <Text style={styles.metricSub}>km away</Text>
+              <Text style={styles.metricValue}>{params.available || '0'}/{params.total || '0'}</Text>
+              <Text style={styles.metricSub}>Available Now</Text>
             </View>
           </View>
 
-          {/* Charging Slots Grid */}
-          <Text style={styles.sectionTitle}>Available Charging Slots</Text>
-          
+          <Text style={styles.sectionTitle}>Select Charging Slot</Text>
           <View style={styles.slotsGrid}>
             {SLOTS.map((slot) => (
               <TouchableOpacity 
-              key={slot.id} 
-              onPress={() => slot.available && setSelectedSlot(slot.id)}
-              activeOpacity={slot.available ? 0.7 : 1}
-              style={[
-                styles.slotCard, 
-                !slot.available && styles.slotOccupied,
-                selectedSlot === slot.id && styles.slotSelected
-              ]}
-            >
-              {selectedSlot === slot.id && (
-                <View style={styles.checkMarker}>
-                  <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />
-                </View>
-              )}
-              <MaterialCommunityIcons 
-                name="lightning-bolt" 
-                size={22} 
-                color={slot.available ? (selectedSlot === slot.id ? "#FFFFFF" : "#000000") : "#94A3B8"} 
-              />
-              <Text style={[
-                styles.slotNumber,
-                !slot.available && styles.slotNumberOccupied,
-                slot.available && { color: selectedSlot === slot.id ? "#FFFFFF" : "#000000" }
-              ]}>{slot.id}</Text>
-            </TouchableOpacity>
+                key={slot.id} 
+                onPress={() => slot.available && setSelectedSlot(slot.id)}
+                activeOpacity={slot.available ? 0.7 : 1}
+                style={[
+                  styles.slotCard, 
+                  !slot.available && styles.slotOccupied,
+                  selectedSlot === slot.id && styles.slotSelected
+                ]}
+              >
+                {selectedSlot === slot.id && (
+                  <View style={styles.checkMarker}>
+                    <MaterialCommunityIcons name="check-circle" size={20} color="#FFFFFF" />
+                  </View>
+                )}
+                <MaterialCommunityIcons 
+                  name="lightning-bolt" 
+                  size={22} 
+                  color={slot.available ? (selectedSlot === slot.id ? "#FFFFFF" : "#0D7FF2") : "#94A3B8"} 
+                />
+                <Text style={[
+                  styles.slotNumber,
+                  !slot.available && styles.slotNumberOccupied,
+                  slot.available && { color: selectedSlot === slot.id ? "#FFFFFF" : "#1E293B" }
+                ]}>{slot.id}</Text>
+              </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.slotsCount}>{availabilityText || 'Slots availability not available'}</Text>
 
-          {/* Amenities */}
           <Text style={styles.sectionTitle}>Amenities</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.amenitiesContainer}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.amenitiesContainer}>
             {AMENITIES.map((item) => (
               <View key={item.id} style={styles.amenityChip}>
                 <MaterialCommunityIcons name={item.icon as any} size={18} color={item.color} style={{ marginRight: 6 }} />
@@ -203,22 +198,24 @@ export default function HubScreen() {
             ))}
           </ScrollView>
 
-          {/* Operating Hours */}
-          <Text style={styles.sectionTitle}>Operating Hours</Text>
-          <View style={styles.hoursCard}>
-            <View style={styles.statusDot} />
-            <Text style={styles.hoursText}>Open 24/7</Text>
-          </View>
-
-          <View style={{ height: 120 }} />
+          <View style={{ height: 140 }} />
         </ScrollView>
       </SafeAreaView>
 
-      {/* Floating Action Button */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.navigateActionBtn} onPress={() => router.push('/parking')}>
-          <Ionicons name="navigate" size={22} color="#FFFFFF" style={{ marginRight: 10 }} />
-          <Text style={styles.navigateActionText}>Navigate to Station</Text>
+        <TouchableOpacity 
+          style={[styles.startActionBtn, (!isOnline || isStarting) && styles.startBtnDisabled]} 
+          onPress={handleStartCharging}
+          disabled={!isOnline || isStarting}
+        >
+          {isStarting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="flash" size={22} color="#FFFFFF" style={{ marginRight: 10 }} />
+              <Text style={styles.startActionText}>Start Charging Now</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -258,7 +255,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#dadbdf',
+    backgroundColor: 'rgba(255,255,255,0.8)',
     justifyContent: 'center',
     alignItems: 'center'
   },
@@ -275,24 +272,24 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   titleSection: {
-    marginBottom: 8,
+    marginBottom: 15,
   },
   mainTitle: {
     fontSize: 28,
     fontWeight: '800',
     color: '#1E293B',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   locationText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#475569',
     fontWeight: '600',
-    marginLeft:8,
+    marginLeft: 4,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -308,6 +305,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94A3B8',
     fontWeight: '600',
+  },
+  imageSection: {
+    width: '100%',
+    height: 200,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 25,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  stationImage: {
+    width: '100%',
+    height: '100%',
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -346,7 +359,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   metricValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#1E293B',
     marginBottom: 4,
@@ -366,50 +379,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 20,
   },
   slotCard: {
     width: (width - 78) / 4,
     height: 75,
-    backgroundColor: '#0D7FF2',
-    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
-    position: 'relative',
+    borderWidth: 2,
+    borderColor: '#F1F5F9',
   },
   slotSelected: {
     backgroundColor: '#0D7FF2',
-    transform: [{ scale: 1.05 }],
+    borderColor: '#0D7FF2',
   },
   checkMarker: {
     position: 'absolute',
-    top: 5,
-    right: 5,
+    top: 4,
+    right: 4,
     zIndex: 10,
   },
   slotOccupied: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+    borderColor: '#F1F5F9',
   },
   slotNumber: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#1E293B',
     marginTop: 2,
   },
   slotNumberOccupied: {
     color: '#94A3B8',
   },
-  slotsCount: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '700',
-    marginBottom: 30,
-  },
   amenitiesContainer: {
     flexDirection: 'row',
-    marginBottom: 30,
-    paddingRight: 40,
+    paddingBottom: 10,
   },
   amenityChip: {
     flexDirection: 'row',
@@ -417,38 +425,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
     marginRight: 10,
-    marginBottom: 10,
   },
   amenityText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#64748B',
-  },
-  hoursCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#0D7FF2',
-    marginRight: 12,
-  },
-  hoursText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
+    color: '#475569',
   },
   footer: {
     position: 'absolute',
@@ -457,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 22,
   },
-  navigateActionBtn: {
+  startActionBtn: {
     width: '100%',
     height: 64,
     backgroundColor: '#0D7FF2',
@@ -471,7 +456,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
   },
-  navigateActionText: {
+  startBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0,
+  },
+  startActionText: {
     fontSize: 19,
     fontWeight: '800',
     color: '#FFFFFF',

@@ -1,584 +1,413 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState, useEffect } from 'react';
-import { getStations } from './services/api';
-import { useVehicle } from '../context/VehicleContext';
-import { Dimensions, Keyboard, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Svg, { Line, Path, Rect } from 'react-native-svg';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { getStations, searchStations, SERVER_URL, getImageUrl } from './services/api';
+import { useRealtime } from '../context/RealtimeContext';
+import { 
+  Dimensions, 
+  Keyboard, 
+  Platform, 
+  StyleSheet, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  View, 
+  FlatList, 
+  Image, 
+  ActivityIndicator,
+  Animated,
+  Pressable
+} from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import type { MapViewType } from '../components/MapProvider';
 import MapView, { Marker } from '../components/MapProvider';
-import { API_BASE_URL } from '../constants/api';
 
 const { width, height } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.85;
+const CARD_SPACING = 15;
 
 /**
- * BRAND COLORS:
- * Grey: #DADBDF
- * Blue: #0D7FF2
- * Black/White
+ * BRAND COLORS
  */
+const COLORS = {
+  primary: '#0D7FF2', // Electric Blue
+  secondary: '#10B981', // Green for available
+  danger: '#EF4444', // Red for offline
+  warning: '#F59E0B', // Amber
+  grey: '#94A3B8',
+  dark: '#1E293B',
+  white: '#FFFFFF',
+  background: '#F8FAFC'
+};
 
-// Simulation data for search - 50+ Places in Tamil Nadu
-const SAMPLE_LOCATIONS = {
-  'chennai': { latitude: 13.0827, longitude: 80.2707 },
-  'coimbatore': { latitude: 11.0168, longitude: 76.9558 },
-  'madurai': { latitude: 9.9252, longitude: 78.1198 },
-  'tiruchirappalli': { latitude: 10.7905, longitude: 78.7047 },
-  'salem': { latitude: 11.6643, longitude: 78.1460 },
-  'erode': { latitude: 11.3410, longitude: 77.7172 },
-  'tirunelveli': { latitude: 8.7139, longitude: 77.7567 },
-  'vellore': { latitude: 12.9165, longitude: 79.1325 },
-  'thoothukudi': { latitude: 8.7642, longitude: 78.1348 },
-  'thanjavur': { latitude: 10.7905, longitude: 79.1378 },  
-  'hosur': { latitude: 12.7409, longitude: 77.8257 },
-  'kanyakumari': { latitude: 8.0883, longitude: 77.5385 },
-  'nagercoil': { latitude: 8.1833, longitude: 77.4119 },
-  'kancheepuram': { latitude: 12.8342, longitude: 79.7036 },
-  'tiruppur': { latitude: 11.1085, longitude: 77.3411 },
-  'karur': { latitude: 10.9601, longitude: 78.0766 },
-  'cuddalore': { latitude: 11.7447, longitude: 79.7680 },
-  'kumbakonam': { latitude: 10.9602, longitude: 79.3845 },
-  'tiruvannamalai': { latitude: 12.2257, longitude: 79.0747 },
-  'pollachi': { latitude: 10.6583, longitude: 77.0083 },
-  'rajapalayam': { latitude: 9.4500, longitude: 77.5500 },
-  'pudukkottai': { latitude: 10.3833, longitude: 78.8167 },
-  'vaniyambadi': { latitude: 12.6833, longitude: 78.6167 },
-  'ambur': { latitude: 12.7833, longitude: 78.7167 },
-  'nagapattinam': { latitude: 10.7667, longitude: 79.8333 },
-  'neyveli': { latitude: 11.6000, longitude: 79.4833 },
-  'karaikudi': { latitude: 10.0667, longitude: 78.7833 },
-  'kumarapalayam': { latitude: 11.4500, longitude: 77.7333 },
-  'theni': { latitude: 10.0100, longitude: 77.4800 },
-  'dindigul': { latitude: 10.3667, longitude: 77.9667 },
-  'dharmapuri': { latitude: 12.1333, longitude: 78.1583 },
-  'krishnagiri': { latitude: 12.5186, longitude: 78.2137 },
-  'namakkal': { latitude: 11.2189, longitude: 78.1672 },
-  'perambalur': { latitude: 11.2333, longitude: 78.8833 },
-  'ariyalur': { latitude: 11.1333, longitude: 79.0667 },
-  'tiruvarur': { latitude: 10.7667, longitude: 79.6333 },
-  'mayiladuthurai': { latitude: 11.1000, longitude: 79.6500 },
-  'ranipet': { latitude: 12.9275, longitude: 79.3328 },
-  'tirupathur': { latitude: 12.4925, longitude: 78.5678 },
-  'tenkasi': { latitude: 8.9594, longitude: 77.3139 },
-  'sivakasi': { latitude: 9.4500, longitude: 77.8000 },
-  'sivagangai': { latitude: 9.8500, longitude: 78.4833 },
-  'komarapalayam': { latitude: 11.4363, longitude: 77.7232 },
-  'amanpuram': { latitude: 13.1000, longitude: 80.2000 },
-  'avadi': { latitude: 13.1167, longitude: 80.1000 },
-  'tambaram': { latitude: 12.9249, longitude: 80.1277 },
-  'pallavaram': { latitude: 12.9675, longitude: 80.1491 },
-  'poonamallee': { latitude: 13.0475, longitude: 80.0944 },
-  'tiruvallur': { latitude: 13.1333, longitude: 79.9167 },
-  'chengalpattu': { latitude: 12.7000, longitude: 79.9833 },
-  'kallakurichi': { latitude: 11.7333, longitude: 78.9667 },
-  'viluppuram': { latitude: 11.9401, longitude: 79.4861 },
-  'virudhunagar': { latitude: 9.5841, longitude: 77.9511 },
-  'ooty': { latitude: 11.4064, longitude: 76.6932 },
-  'kodaikanal': { latitude: 10.2381, longitude: 77.4892 },
-  'yelagiri': { latitude: 12.5768, longitude: 78.6385 },
-  'ootacamund': { latitude: 11.4064, longitude: 76.6932 },
-  'erode zeon': { latitude: 11.3500, longitude: 77.7120 },
-  'iocl station': { latitude: 10.73828, longitude: 77.53223 },
-  'statiq station': { latitude: 11.34977, longitude: 77.732824 },
-} as any;
-
-const FILTERS = ['Available'];
-
-type MapStation = {
-  id: string;
+interface Station {
+  _id: string;
+  stationNumber: string;
+  stationName: string;
   name: string;
+  location: string;
+  district: string;
   latitude: number;
   longitude: number;
-  available: number;
-  total: number;
-  type: string;
-  location?: string;
-  powerOutput?: number;
-  basePricePerKwh?: number;
-};
+  status: 'online' | 'offline' | 'maintenance' | 'charging';
+  availabilityStatus: string;
+  powerOutput: number;
+  connectorType: string;
+  image: string;
+  ports: number;
+  basePricePerKwh: number;
+}
 
-const normalizeLocationKey = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
+const EVMarkerIcon = React.memo(({ selected = false, availability = 'online' }: { selected?: boolean, availability?: string }) => {
+  const scale = useRef(new Animated.Value(1)).current;
 
-const LOCATION_COORDS: Record<string, { latitude: number; longitude: number }> = {
-  [normalizeLocationKey('Reliance Mall, Perundurai Road, Teachers Colony, Erode')]: {
-    latitude: 11.3500,
-    longitude: 77.7120,
-  },
-  [normalizeLocationKey('PGCH PPM, SH 37, Dharapuram South Erode')]: {
-    latitude: 10.73828,
-    longitude: 77.53223,
-  },
-  [normalizeLocationKey('Showroom Parking 396, Ashokapuram, PS, Bhavani Main Rd, near Devi Mahal Erode')]: {
-    latitude: 11.34977,
-    longitude: 77.732824,
-  },
-};
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: selected ? 1.4 : 1,
+      useNativeDriver: true,
+      friction: 4,
+    }).start();
+  }, [selected]);
 
-const getCoordsFromLocation = (locationText: string | undefined, index: number) => {
-  const fallback = {
-    latitude: 11.3410 + ((index % 8) - 4) * 0.01, // Default to Erode area
-    longitude: 77.7172 + ((index % 6) - 3) * 0.01,
+  const getStatusColor = () => {
+    const s = availability.toLowerCase();
+    if (s === 'online' || s === 'available') return COLORS.secondary;
+    if (s === 'charging') return '#3B82F6';
+    return COLORS.danger;
   };
 
-  if (!locationText) return fallback;
-  const normalized = normalizeLocationKey(locationText);
-  const exact = LOCATION_COORDS[normalized];
-  if (exact) {
-    return {
-      latitude: exact.latitude + ((index % 7) - 3) * 0.0015,
-      longitude: exact.longitude + ((index % 7) - 3) * 0.0015,
-    };
-  }
-  const lower = locationText.toLowerCase();
-  
-  // Try to find a city match in the address
-  const matchedCity = Object.keys(SAMPLE_LOCATIONS).find((city) => {
-    const cityLower = city.toLowerCase();
-    // Check if city is a standalone word or part of the address
-    const regex = new RegExp(`\\b${cityLower}\\b`, 'i');
-    return regex.test(lower);
-  });
-
-  if (!matchedCity) return fallback;
-  const base = SAMPLE_LOCATIONS[matchedCity];
-  
-  // Apply a small deterministic offset so markers don't overlap perfectly
-  return {
-    latitude: base.latitude + ((index % 7) - 3) * 0.004,
-    longitude: base.longitude + ((index % 7) - 3) * 0.004,
-  };
-};
-
-const ChargerIcon = ({
-  size,
-  color,
-}: {
-  size: number;
-  color: string;
-}) => {
-  const strokeWidth = Math.max(2, Math.round(size * 0.08));
   return (
-    <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-      <Rect
-        x="14"
-        y="8"
-        width="26"
-        height="48"
-        rx="6"
-        stroke={color}
-        strokeWidth={strokeWidth}
-      />
-      <Path
-        d="M28 20 L22 32 H30 L24 44"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <Path
-        d="M40 22 C50 22 52 28 52 32 C52 36 50 42 44 44"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-      />
-      <Rect
-        x="46"
-        y="40"
-        width="10"
-        height="10"
-        rx="3"
-        stroke={color}
-        strokeWidth={strokeWidth}
-      />
-      <Line
-        x1="49"
-        y1="38"
-        x2="49"
-        y2="34"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-      />
-      <Line
-        x1="53"
-        y1="38"
-        x2="53"
-        y2="34"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-      />
-    </Svg>
+    <Animated.View style={[styles.markerWrapper, { transform: [{ scale }] }]}>
+      <View style={[styles.marker3DContainer, selected && styles.marker3DGlow]}>
+        <Image 
+          source={require('../assets/images/image.png')} 
+          style={styles.marker3DImage}
+          resizeMode="contain"
+        />
+        {/* Availability Indicator Dot */}
+        <View style={[styles.markerStatusDot, { backgroundColor: getStatusColor() }]} />
+      </View>
+      {selected && <View style={styles.markerHalo3D} />}
+    </Animated.View>
   );
-};
+});
 
 export default function MapScreen() {
   const router = useRouter();
   const mapRef = useRef<MapViewType>(null);
-  const [selectedFilter, setSelectedFilter] = useState('Available');
-  const [isLiked, setIsLiked] = useState(false);
+  const listRef = useRef<any>(null);
+  const { stationsStatus, lastUpdate } = useRealtime();
+  
+  const [stations, setStations] = useState<Station[]>([]);
+  const [filteredStations, setFilteredStations] = useState<Station[]>([]);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [stations, setStations] = useState<MapStation[]>([]);
-  const [selectedStation, setSelectedStation] = useState<MapStation | null>(null);
-  const [searchPin, setSearchPin] = useState<{ latitude: number; longitude: number; title: string } | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // Simulated User Location (Near Erode for the requested address)
-  const userLocation = {
-    latitude: 11.3410,
-    longitude: 77.7172,
-  };
+  // Animated values for UI transitions
+  const scrollX = useRef(new Animated.Value(0)).current;
 
+  // Initial fetch
   useEffect(() => {
-    const loadStations = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/stations/debug`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) return;
-
-        const mapped: MapStation[] = data.map((station: any, index: number) => {
-          const lat = station.latitude || station.lat || station.coords?.latitude;
-          const lon = station.longitude || station.lng || station.coords?.longitude;
-
-          const hasExactCoords =
-            lat && lon &&
-            !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lon));
-
-          const coords = hasExactCoords
-            ? {
-                latitude: parseFloat(lat),
-                longitude: parseFloat(lon),
-              }
-            : getCoordsFromLocation(station.location || station.address || station.place, index);
-
-          const name = station.name || station.bunkName || station.stationName || `Station ${index + 1}`;
-          const location = station.location || station.address || station.bunkLocation || 'Location details not available';
-
-          const ports = Number(station.ports || station.slots || 1);
-          const power = Number(station.powerOutput || station.kw || station.speed || 60);
-          const price = Number(station.basePricePerKwh || station.price || station.cost || 18);
-
-          return {
-            id: String(station._id || station.id || index),
-            name,
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            available: station.status === 'offline' ? 0 : (station.availablePorts || ports),
-            total: ports,
-            type: power ? `${power} kW` : 'Fast',
-            location,
-            powerOutput: power,
-            basePricePerKwh: price,
-          };
-        });
-
-        setStations(mapped);
-        
-        // Automatically select and center on the first station from the API
-        if (mapped.length > 0) {
-          const firstStation = mapped[0];
-          setSelectedStation(firstStation);
-          
-          // Use a small delay to ensure the map component is ready before animating
-          setTimeout(() => {
-            if (mapRef.current) {
-              mapRef.current.animateToRegion({
-                latitude: firstStation.latitude,
-                longitude: firstStation.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }, 1000);
-            }
-          }, 800);
-        }
-      } catch (err) {
-        console.log('Station sync failed:', err);
-      }
-    };
-
-    loadStations();
+    fetchStationData();
   }, []);
 
-  const featuredStation = selectedStation || stations[0];
+  // Update station statuses from real-time context
+  useEffect(() => {
+    if (Object.keys(stationsStatus).length > 0) {
+      setStations(currentStations => 
+        currentStations.map(s => 
+          stationsStatus[s._id] 
+            ? { ...s, availabilityStatus: stationsStatus[s._id], status: stationsStatus[s._id] as any } 
+            : s
+        )
+      );
+    }
+  }, [stationsStatus]);
 
-  const handleNavigate = () => {
-    if (featuredStation) {
-      setIsNavigating(true);
-      
-      // Zoom into the route
-      mapRef.current?.animateToRegion({
-        latitude: (userLocation.latitude + featuredStation.latitude) / 2,
-        longitude: (userLocation.longitude + featuredStation.longitude) / 2,
-        latitudeDelta: Math.max(Math.abs(userLocation.latitude - featuredStation.latitude) * 1.5, 0.02),
-        longitudeDelta: Math.max(Math.abs(userLocation.longitude - featuredStation.longitude) * 1.5, 0.02),
-      }, 1000);
+  // Handle live data updates for global view if needed
+  useEffect(() => {
+    if (lastUpdate && lastUpdate.type === 'status') {
+      // Handled by stationsStatus mostly, but good to have as fallback
+    }
+  }, [lastUpdate]);
+
+  const fetchStationData = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getStations();
+      if (Array.isArray(data)) {
+        const mapped = data.map(s => ({
+          ...s,
+          latitude: Number(s.latitude),
+          longitude: Number(s.longitude),
+          stationName: s.stationName || s.name,
+          availabilityStatus: s.availabilityStatus || s.status
+        })).filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
+        
+        setStations(mapped);
+        setFilteredStations(mapped);
+        
+        if (mapped.length > 0 && !selectedStation) {
+          setSelectedStation(mapped[0]);
+          focusOnStation(mapped[0], 1000);
+        }
+      }
+    } catch (error) {
+      console.warn('Fetch Error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleMarkerPress = (station: MapStation) => {
-    setSelectedStation(station);
-    setSearchPin(null);
-    setIsNavigating(false); // Reset navigation view when selecting a new marker
-    mapRef.current?.animateToRegion({
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setFilteredStations(stations);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const data = await searchStations(searchQuery);
+      if (Array.isArray(data)) {
+        const mapped = data.map(s => ({
+          ...s,
+          latitude: Number(s.latitude),
+          longitude: Number(s.longitude),
+        })).filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
+        
+        setFilteredStations(mapped);
+        if (mapped.length > 0) {
+          setSelectedStation(mapped[0]);
+          focusOnStation(mapped[0]);
+        }
+      }
+    } catch (error) {
+      console.warn('Search Error:', error);
+    } finally {
+      setIsSearching(false);
+      Keyboard.dismiss();
+    }
+  };
+
+  const focusOnStation = (station: Station, duration = 600) => {
+    if (!mapRef.current) return;
+    mapRef.current.animateToRegion({
       latitude: station.latitude,
       longitude: station.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    }, 600);
+      latitudeDelta: 0.015,
+      longitudeDelta: 0.015,
+    }, duration);
   };
 
-  // Initial region centered on the requested Erode address
-  const initialRegion = {
-    latitude: 11.3500,
-    longitude: 77.7120,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
+  const onMarkerPress = (station: Station, index: number) => {
+    setSelectedStation(station);
+    focusOnStation(station);
+    // Smooth scroll to the card in the horizontal list
+    listRef.current?.scrollToIndex({ 
+      index, 
+      animated: true, 
+      viewPosition: 0.5 
+    });
   };
 
-  const handleSearch = () => {
-    Keyboard.dismiss();
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return;
+  const onScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: true }
+  ), [scrollX]);
 
-    // 1. Search in API stations first (Name or Location match)
-    const matchedStation = stations.find(s => 
-      s.name.toLowerCase().includes(query) || 
-      (s.location && s.location.toLowerCase().includes(query))
+  const renderStationCard = useCallback(({ item, index }: { item: Station, index: number }) => {
+    const isSelected = selectedStation?._id === item._id;
+    // Use real-time status from state
+    const currentStatus = (item.availabilityStatus || 'offline').toLowerCase();
+    const isOnline = currentStatus === 'online' || currentStatus === 'available';
+    const isCharging = currentStatus === 'charging';
+    
+    // Resolve Image URL using helper
+    const imageUrl = getImageUrl(item.image) || 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?q=80&w=400';
+
+    const getStatusColor = () => {
+      if (isCharging) return '#3B82F6'; // Blue
+      if (isOnline) return COLORS.secondary;
+      return COLORS.danger;
+    };
+
+    return (
+      <TouchableOpacity 
+        activeOpacity={0.9}
+        onPress={() => {
+          setSelectedStation(item);
+          focusOnStation(item);
+        }}
+        style={[styles.card, isSelected && styles.cardActive]}
+      >
+        <View style={styles.cardMain}>
+          <View style={styles.cardImageContainer}>
+            <Image 
+              source={{ uri: imageUrl }} 
+              style={styles.cardImage}
+              resizeMode="cover"
+            />
+            <View style={[styles.badgeOverlay, { backgroundColor: getStatusColor() }, isCharging && styles.badgeGlow]}>
+              <Text style={styles.badgeText}>{currentStatus.toUpperCase()}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.cardDetails}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.stationName}</Text>
+              <Text style={styles.cardId}>ID: {item.stationNumber?.slice(-4) || 'N/A'}</Text>
+            </View>
+            
+            <View style={styles.locationContainer}>
+              <Ionicons name="location" size={14} color={COLORS.primary} />
+              <Text style={styles.cardSubtitle} numberOfLines={1}>{item.location}</Text>
+            </View>
+
+            <View style={styles.specGrid}>
+              <View style={styles.specItem}>
+                <MaterialCommunityIcons name="flash" size={16} color={COLORS.warning} />
+                <Text style={styles.specLabel}>{item.powerOutput}kW</Text>
+              </View>
+              <View style={styles.dividerVertical} />
+              <View style={styles.specItem}>
+                <MaterialCommunityIcons name="ev-plug-type2" size={16} color={COLORS.primary} />
+                <Text style={styles.specLabel}>{item.connectorType || 'Type 2'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.navigateBtn, currentStatus === 'offline' && styles.navigateBtnDisabled]}
+          onPress={() => {
+            router.push({
+              pathname: '/hub',
+              params: {
+                stationId: item._id,
+                stationName: item.stationName,
+                location: item.location,
+                powerOutput: String(item.powerOutput),
+                basePricePerKwh: String(item.basePricePerKwh),
+                available: String(item.ports),
+                total: String(item.ports),
+                image: item.image,
+                connectorType: item.connectorType,
+                status: currentStatus
+              }
+            });
+          }}
+        >
+          <Text style={styles.navigateText}>View Details & Start Charging</Text>
+          <MaterialCommunityIcons name="flash" size={18} color="white" />
+        </TouchableOpacity>
+      </TouchableOpacity>
     );
-
-    if (matchedStation) {
-      handleMarkerPress(matchedStation);
-      return;
-    }
-
-    // 2. Search for city in API stations (if user typed just a city name)
-    const cityMatchedStation = stations.find(s => 
-      s.location && s.location.toLowerCase().split(/[,\s]+/).some(word => word === query)
-    );
-
-    if (cityMatchedStation) {
-      handleMarkerPress(cityMatchedStation);
-      return;
-    }
-
-    // 3. Fallback to predefined city coordinates if no specific station matches
-    if (SAMPLE_LOCATIONS[query]) {
-      setSearchPin({ ...SAMPLE_LOCATIONS[query], title: query });
-      mapRef.current?.animateToRegion({
-        ...SAMPLE_LOCATIONS[query],
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      }, 1000);
-    }
-  };
+  }, [selectedStation, router]);
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      {/* Real Map Integration */}
       <MapView
         ref={mapRef}
         style={styles.map}
-        initialRegion={initialRegion}
+        initialRegion={{
+          latitude: 11.0168,
+          longitude: 76.9558,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        }}
       >
-        {/* User Current Location Marker */}
-        <Marker coordinate={userLocation} title="Your Location">
-          <View style={styles.userMarker}>
-            <Ionicons name="navigate" size={18} color="#FFFFFF" />
-          </View>
-        </Marker>
-
-        {!!searchPin && (
-          <Marker
-            coordinate={{ latitude: searchPin.latitude, longitude: searchPin.longitude }}
-            title={searchPin.title}
-            onPress={() => setSearchPin(null)}
-          >
-            <View style={styles.markerContainer}>
-              <View style={styles.customMarkerWrapper}>
-                <Ionicons name="location-sharp" size={28} color="#EF4444" />
-              </View>
-              <View style={styles.markerPointer} />
-            </View>
-          </Marker>
-        )}
-
-        {stations.map((station) => (
-          <Marker
-            key={station._id || station.id}
-            coordinate={{ latitude: station.latitude, longitude: station.longitude }}
-            title={station.name}
-            onPress={() => handleMarkerPress(station)}
-          >
-            <View style={styles.markerContainer}>
-              <View style={styles.customMarkerWrapper}>
-                <Ionicons name="location-sharp" size={28} color="#0D7FF2" />
-              </View>
-              <View style={styles.markerPointer} />
-            </View>
-          </Marker>
-        ))}
+        {filteredStations.map((station, index) => {
+          const isSelected = selectedStation?._id === station._id;
+          return (
+            <Marker
+              key={`${station._id}-${station.availabilityStatus}-${isSelected}`}
+              coordinate={{ latitude: station.latitude, longitude: station.longitude }}
+              onPress={() => onMarkerPress(station, index)}
+              tracksViewChanges={true} // Set to true to ensure custom icons render correctly
+              zIndex={isSelected ? 100 : index}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <EVMarkerIcon 
+                selected={isSelected}
+                availability={station.availabilityStatus}
+              />
+            </Marker>
+          );
+        })}
       </MapView>
 
-      {/* Floating Header UI */}
-      <SafeAreaView style={styles.floatingHeader}>
-        <View style={styles.searchContainer}>
+      {/* Header Overlay */}
+      <SafeAreaView style={styles.headerContainer} pointerEvents="box-none">
+        <View style={styles.searchWrapper}>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#94A3B8" />
-            <TextInput 
+            <Ionicons name="search" size={20} color={COLORS.grey} />
+            <TextInput
               style={styles.searchInput}
-              placeholder="Search charging stations..."
-              placeholderTextColor="#94A3B8"
+              placeholder="Search Station, City or District..."
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmitEditing={handleSearch}
-              returnKeyType="search"
+              placeholderTextColor={COLORS.grey}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setFilteredStations(stations); }}>
+                <Ionicons name="close-circle" size={20} color={COLORS.grey} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContent}
-        >
-          {FILTERS.map((filter) => (
-            <TouchableOpacity 
-              key={filter}
-              style={[
-                styles.filterChip,
-                selectedFilter === filter && styles.activeFilterChip
-              ]}
-              onPress={() => setSelectedFilter(filter)}
-            >
-              <Ionicons 
-                name="checkmark-circle" 
-                size={16} 
-                color={selectedFilter === filter ? '#FFFFFF' : '#0D7FF2'} 
-                style={{ marginRight: 6 }}
-              />
-              <Text style={[
-                styles.filterText,
-                selectedFilter === filter && styles.activeFilterText
-              ]}>{filter}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </SafeAreaView>
 
-      {/* Dynamic Bottom Card */}
-      <View style={styles.bottomCardWrapper}>
-        <View style={styles.bottomCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.badgeRow}>
-              <View style={styles.superchargerBadge}>
-                <Text style={styles.superchargerText}>SUPERCHARGER</Text>
-              </View>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text style={styles.ratingText}>4.9</Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={() => setIsLiked(!isLiked)}>
-              <Ionicons 
-                name={isLiked ? "heart" : "heart-outline"} 
-                size={24} 
-                color={isLiked ? "#EF4444" : "#94A3B8"} 
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.titleWithIcon}>
-            <Text style={styles.stationTitle}>{featuredStation?.name || 'Charging Hub'}</Text>
-            <View style={styles.cardStationIcon}>
-              <ChargerIcon size={32} color="#0D7FF2" />
-            </View>
-          </View>
-          <View style={styles.locationInfo}>
-            <Ionicons name="location" size={16} color="#94A3B8" />
-            <Text style={styles.locationText}>
-              {featuredStation
-                ? `${featuredStation.location || 'Chennai'} • ${featuredStation.available}/${featuredStation.total} available`
-                : 'Select a station'}
-            </Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.specRow}>
-            <View style={styles.specItem}>
-              <Text style={styles.specLabel}>PRICE</Text>
-              <Text style={styles.specValue}>
-                {featuredStation?.basePricePerKwh ? `₹${featuredStation.basePricePerKwh}/kWh` : '--'}
-              </Text>
-            </View>
-            <View style={styles.verticalDivider} />
-            <View style={styles.specItem}>
-              <Text style={styles.specLabel}>SPEED</Text>
-              <Text style={styles.specValue}>
-                {featuredStation?.powerOutput ? `${featuredStation.powerOutput} kW` : '--'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.actionRow}>
-            <TouchableOpacity 
-              style={styles.navigateBtn}
-              onPress={handleNavigate}
-            >
-              <Ionicons name="navigate" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.navigateText}>Navigate</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.infoBtn}
-              onPress={() => {
-                if (!featuredStation) return;
-                router.push({
-                  pathname: '/hub',
-                  params: {
-                    stationName: featuredStation.name,
-                    location: featuredStation.location ?? '',
-                    powerOutput: featuredStation.powerOutput != null ? String(featuredStation.powerOutput) : '',
-                    basePricePerKwh: featuredStation.basePricePerKwh != null ? String(featuredStation.basePricePerKwh) : '',
-                    available: String(featuredStation.available),
-                    total: String(featuredStation.total),
-                  },
-                });
-              }}
-            >
-              <Ionicons name="information-circle-outline" size={24} color="#1E293B" />
-            </TouchableOpacity>
-          </View>
+      {/* Loading State */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Syncing Stations...</Text>
         </View>
-      </View>
+      )}
 
-      {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.replace('/home')}>
-          <Ionicons name="home-outline" size={24} color="#94A3B8" />
-          <Text style={styles.tabLabel}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Ionicons name="location" size={24} color="#0D7FF2" />
-          <Text style={[styles.tabLabel, { color: '#0D7FF2' }]}>Map</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Ionicons name="time-outline" size={24} color="#94A3B8" />
-          <Text style={styles.tabLabel}>History</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Ionicons name="person-outline" size={24} color="#94A3B8" />
-          <Text style={styles.tabLabel}>Profile</Text>
-        </TouchableOpacity>
+      {/* Bottom Station List */}
+      <View style={styles.bottomSheet}>
+        <View style={styles.sheetHandle} />
+        <View style={styles.listHeader}>
+          <Text style={styles.listTitle}>Nearby Stations ({filteredStations.length})</Text>
+          <TouchableOpacity onPress={fetchStationData} style={styles.refreshBtn}>
+            <Ionicons name="refresh" size={18} color={COLORS.primary} />
+            <Text style={styles.refreshText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+
+        {filteredStations.length === 0 && !isLoading ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons name="map-marker-off" size={48} color={COLORS.grey} />
+            <Text style={styles.emptyText}>No stations found in this area</Text>
+          </View>
+        ) : (
+          <Animated.FlatList
+            ref={listRef}
+            data={filteredStations}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={item => item._id}
+            renderItem={renderStationCard}
+            snapToInterval={CARD_WIDTH + CARD_SPACING}
+            decelerationRate="fast"
+            contentContainerStyle={styles.listContent}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            getItemLayout={(data, index) => ({
+              length: CARD_WIDTH + CARD_SPACING,
+              offset: (CARD_WIDTH + CARD_SPACING) * index,
+              index,
+            })}
+          />
+        )}
       </View>
     </View>
   );
@@ -587,351 +416,306 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
   map: {
     width: width,
     height: height,
   },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 60,
-    height: 70,
-  },
-  customMarkerWrapper: {
-    backgroundColor: '#FFFFFF',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    borderWidth: 2,
-    borderColor: '#0D7FF2',
-    zIndex: 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      web: {
-        boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.3)',
-      }
-    })
-  },
-  customMarkerImage: {
-    width: 28,
-    height: 28,
-  },
-  professionalMarker: {
-    backgroundColor: '#0D7FF2',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    zIndex: 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      web: {
-        boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.3)',
-      }
-    })
-  },
-  iconCircle: {
-    backgroundColor: '#FFFFFF',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  markerPointer: {
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 10,
-    borderRightWidth: 10,
-    borderBottomWidth: 12,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#FFFFFF',
-    transform: [{ rotate: '180deg' }],
-    marginTop: -2,
-    zIndex: 1,
-  },
-  userMarker: {
-    backgroundColor: '#0D7FF2',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    elevation: 5,
-  },
-  floatingHeader: {
+  headerContainer: {
     position: 'absolute',
-    top: 50,
-    width: width,
+    top: 0,
+    left: 0,
+    right: 0,
     zIndex: 10,
   },
-  searchContainer: {
+  searchWrapper: {
     paddingHorizontal: 20,
-    marginBottom: 15,
+    paddingTop: 10,
   },
   searchBar: {
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.white,
+    height: 54,
+    borderRadius: 27,
     paddingHorizontal: 20,
-    elevation: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-      },
-      web: {
-        boxShadow: '0px 5px 10px rgba(0, 0, 0, 0.1)',
-      }
-    })
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   searchInput: {
     flex: 1,
     marginLeft: 10,
-    fontSize: 15,
-    color: '#1E293B',
+    fontSize: 16,
+    color: COLORS.dark,
+    fontWeight: '600',
   },
-  filterScroll: {
-    paddingLeft: 20,
+  markerWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  filterContent: {
-    paddingRight: 40,
-  },
-  filterChip: {
+  marker3DContainer: {
+    width: 40,
     height: 40,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  marker3DImage: {
+    width: 38,
+    height: 38,
+  },
+  marker3DGlow: {
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  markerStatusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: 'white',
+    elevation: 4,
+    zIndex: 10,
+  },
+  markerHalo3D: {
+    position: 'absolute',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: COLORS.primary + '15',
+    zIndex: 0,
+  },
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 25,
+  },
+  sheetHandle: {
+    width: 45,
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 15,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 25,
+    marginBottom: 15,
+  },
+  listTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.dark,
+  },
+  refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginRight: 10,
-    elevation: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      web: {
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-      }
-    })
+    backgroundColor: COLORS.primary + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
-  activeFilterChip: {
-    backgroundColor: '#0D7FF2',
-  },
-  filterText: {
-    fontSize: 13,
+  refreshText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#0D7FF2',
+    color: COLORS.primary,
+    marginLeft: 4,
   },
-  activeFilterText: {
-    color: '#FFFFFF',
+  listContent: {
+    paddingLeft: 20,
+    paddingRight: 20,
   },
-  bottomCardWrapper: {
+  card: {
+    width: CARD_WIDTH,
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    marginRight: CARD_SPACING,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  cardActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+  },
+  cardMain: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  cardImageContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  badgeOverlay: {
     position: 'absolute',
-    bottom: 105,
-    width: width,
-    alignItems: 'center',
+    top: 6,
+    left: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    zIndex: 10,
   },
-  bottomCard: {
-    width: width * 0.92,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 30,
-    padding: 20,
-    elevation: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-      },
-      web: {
-        boxShadow: '0px -10px 20px rgba(0, 0, 0, 0.1)',
-      }
-    })
+  badgeGlow: {
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  cardDetails: {
+    flex: 1,
+    paddingLeft: 14,
+    justifyContent: 'space-between',
+    paddingVertical: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 2,
   },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  superchargerBadge: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    marginRight: 10,
-  },
-  superchargerText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#0D7FF2',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#F59E0B',
-    marginLeft: 4,
-  },
-  titleWithIcon: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  cardStationIcon: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stationTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#0F172A',
-    flex: 1,
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 8,
-    paddingRight: 20,
-  },
-  locationText: {
-    fontSize: 15,
-    color: '#64748B',
-    marginLeft: 4,
-    fontWeight: '600',
-    lineHeight: 20,
-    flex: 1,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 18,
-  },
-  specRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  specItem: {
-    flex: 1,
-  },
-  specLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  specValue: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  verticalDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#F1F5F9',
-    marginHorizontal: 15,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 25,
-  },
-  navigateBtn: {
-    flex: 1,
-    height: 60,
-    backgroundColor: '#0D7FF2',
-    borderRadius: 20,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0D7FF2',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-      },
-      web: {
-        boxShadow: '0px 6px 10px rgba(13, 127, 242, 0.3)',
-      }
-    })
-  },
-  navigateText: {
+  cardTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: COLORS.dark,
+    flex: 1,
   },
-  infoBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 15,
-  },
-  tabBar: {
-    position: 'absolute',
-    bottom: 0,
-    width: width,
-    height: 85,
-    backgroundColor: '#E2E8F0',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 12,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  tabItem: {
-    alignItems: 'center',
-  },
-  tabLabel: {
-    fontSize: 11,
+  cardId: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#94A3B8',
-    marginTop: 5,
+    color: COLORS.grey,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 10,
   },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: COLORS.grey,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  specGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  specLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.dark,
+  },
+  dividerVertical: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
+  },
+  navigateBtn: {
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 52,
+    borderRadius: 16,
+    gap: 10,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    marginTop: 4,
+  },
+  navigateBtnDisabled: {
+    backgroundColor: COLORS.grey,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  navigateText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptyState: {
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 20,
+  },
+  emptyText: {
+    marginTop: 12,
+    color: COLORS.grey,
+    fontSize: 15,
+    fontWeight: '600',
+  }
 });

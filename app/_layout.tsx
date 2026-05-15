@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { VehicleProvider } from '../context/VehicleContext';
+import { RealtimeProvider } from '../context/RealtimeContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -19,15 +20,24 @@ export default function RootLayout() {
     const initApp = async () => {
       try {
         const activeSession = await AsyncStorage.getItem('activeSessionId');
+        const userToken = await AsyncStorage.getItem('userToken');
+
         if (activeSession) {
           setTimeout(() => {
             router.replace('/charging_start');
-          }, 100);
+          }, 500);
+        } else if (userToken) {
+          setTimeout(() => {
+            router.replace('/selection');
+          }, 500);
         }
       } catch (err) {
-        console.log('Error checking session', err);
+        console.log('Error initializing app', err);
       } finally {
-        SplashScreen.hideAsync();
+        // We hide splash screen after a short delay to ensure initial routes are ready
+        setTimeout(() => {
+          SplashScreen.hideAsync();
+        }, 1000);
       }
     };
 
@@ -35,26 +45,28 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <VehicleProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="selection" />
-        <Stack.Screen name="details" />
-        <Stack.Screen name="home" />
-        <Stack.Screen name="map" />
-        <Stack.Screen name="hub" />
-        <Stack.Screen name="parking" />
-        <Stack.Screen name="safety" />
-        <Stack.Screen name="charging_start" />
-        <Stack.Screen name="completed" />
-        <Stack.Screen name="payment" />
-        <Stack.Screen name="payment_success" />
-        <Stack.Screen name="history" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="settings" />
-      </Stack>
-      <StatusBar style="auto" />
-    </VehicleProvider>
+    <RealtimeProvider>
+      <VehicleProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="selection" />
+          <Stack.Screen name="details" />
+          <Stack.Screen name="home" />
+          <Stack.Screen name="map" />
+          <Stack.Screen name="hub" />
+          <Stack.Screen name="parking" />
+          <Stack.Screen name="safety" />
+          <Stack.Screen name="charging_start" />
+          <Stack.Screen name="completed" />
+          <Stack.Screen name="payment" />
+          <Stack.Screen name="payment_success" />
+          <Stack.Screen name="history" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="settings" />
+        </Stack>
+        <StatusBar style="auto" />
+      </VehicleProvider>
+    </RealtimeProvider>
   );
 }

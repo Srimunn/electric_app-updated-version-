@@ -1,19 +1,18 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { StyleSheet, Text, View } from 'react-native';
+import { RealtimeProvider, useRealtime } from '../context/RealtimeContext';
 import { VehicleProvider } from '../context/VehicleContext';
-import { RealtimeProvider } from '../context/RealtimeContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -42,7 +41,7 @@ export default function RootLayout() {
     };
 
     initApp();
-  }, []);
+  }, [router]);
 
   return (
     <RealtimeProvider>
@@ -65,8 +64,39 @@ export default function RootLayout() {
           <Stack.Screen name="profile" />
           <Stack.Screen name="settings" />
         </Stack>
+        <OfflineIndicator />
         <StatusBar style="auto" />
       </VehicleProvider>
     </RealtimeProvider>
   );
 }
+
+function OfflineIndicator() {
+  const { isConnected, hasConnected } = useRealtime();
+  if (!hasConnected || isConnected === true) return null;
+  return (
+    <View style={styles.offlineBanner}>
+      <Text style={styles.offlineText}>Disconnected — trying to reconnect...</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  offlineBanner: {
+    position: 'absolute',
+    top: 40,
+    left: 12,
+    right: 12,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    zIndex: 9999,
+    elevation: 20,
+  },
+  offlineText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textAlign: 'center',
+  }
+});

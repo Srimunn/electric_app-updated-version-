@@ -1,12 +1,12 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, Image, Dimensions, TouchableOpacity, ScrollView, Modal, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useVehicle } from '../context/VehicleContext';
-import { getStations, SERVER_URL } from './services/api';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Dimensions, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useVehicle } from '../context/VehicleContext';
+import { getImageUrl, getStations } from './services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -116,7 +116,7 @@ export default function HomeScreen() {
                 <View style={styles.stationIconBox}>
                   {nearestStation.image ? (
                     <Image 
-                      source={{ uri: nearestStation.image.startsWith('http') ? nearestStation.image : `${SERVER_URL}${nearestStation.image}` }} 
+                      source={{ uri: nearestStation.image.startsWith('http') ? nearestStation.image : getImageUrl(nearestStation.image) }} 
                       style={{ width: '100%', height: '100%', borderRadius: 20 }}
                     />
                   ) : (

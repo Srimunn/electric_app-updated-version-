@@ -1,12 +1,13 @@
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState, useEffect } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform, ActivityIndicator, Alert, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { startSession, getImageUrl } from './services/api';
-import { useRealtime } from '../context/RealtimeContext';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import FallbackImage from '../components/ui/fallback-image';
+import { useRealtime } from '../context/RealtimeContext';
+import { getImageUrl, getPricing, startSession } from './services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,7 @@ export default function HubScreen() {
   const { stationsStatus } = useRealtime();
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [pricing, setPricing] = useState<any>(null);
 
   const stationId = params.stationId as string;
   const currentStatus = stationsStatus[stationId] || params.status || 'offline';
@@ -82,6 +84,18 @@ export default function HubScreen() {
     }
   };
 
+  // Fetch pricing information
+  useEffect(() => {
+    let mounted = true;
+    const fetchPricing = async () => {
+      if (!stationId) return;
+      const p = await getPricing(stationId);
+      if (mounted) setPricing(p);
+    };
+    fetchPricing();
+    return () => { mounted = false; };
+  }, [stationId]);
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -111,10 +125,11 @@ export default function HubScreen() {
           </View>
 
           <View style={styles.imageSection}>
-             <Image 
-                source={{ uri: getImageUrl(params.image as string) || 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?q=80&w=400' }} 
-                style={styles.stationImage}
-                resizeMode="cover"
+             <FallbackImage
+               uri={getImageUrl(params.image as string) || 'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?q=80&w=400'}
+               fallback={require('../assets/images/image.png')}
+               style={styles.stationImage}
+               resizeMode="cover"
              />
           </View>
 
@@ -133,8 +148,14 @@ export default function HubScreen() {
                 <MaterialCommunityIcons name="currency-inr" size={20} color="#64748B" />
                 <Text style={styles.metricLabel}>COST</Text>
               </View>
-              <Text style={styles.metricValue}>{params.basePricePerKwh ? `₹${params.basePricePerKwh}` : '--'}</Text>
+              <Text style={styles.metricValue}>{pricing?.basePricePerKwh || params.basePricePerKwh ? `₹${pricing?.basePricePerKwh ?? params.basePricePerKwh}` : '--'}</Text>
               <Text style={styles.metricSub}>per kWh</Text>
+              {pricing && (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '700' }}>Taxes: ₹{Number(pricing.taxes || 0).toFixed(2)}</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '700' }}>Convenience Fee: ₹{Number(pricing.convenienceFee || 0).toFixed(2)}</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.metricCard}>

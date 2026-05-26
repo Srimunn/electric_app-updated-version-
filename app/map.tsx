@@ -1,28 +1,26 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { getStations, searchStations, SERVER_URL, getImageUrl } from './services/api';
-import { useRealtime } from '../context/RealtimeContext';
-import { 
-  Dimensions, 
-  Keyboard, 
-  Platform, 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  View, 
-  FlatList, 
-  Image, 
-  ActivityIndicator,
-  Animated,
-  Pressable
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    Image,
+    Keyboard,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MapViewType } from '../components/MapProvider';
 import MapView, { Marker } from '../components/MapProvider';
+import FallbackImage from '../components/ui/fallback-image';
+import { useRealtime } from '../context/RealtimeContext';
+import { getImageUrl, getStations, searchStations } from './services/api';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.85;
@@ -115,6 +113,16 @@ export default function MapScreen() {
     fetchStationData();
   }, []);
 
+  // Keep filteredStations in sync when base stations or statuses change
+  useEffect(() => {
+    if (stations.length === 0) return;
+    setFilteredStations(prev => {
+      // apply current search filter if present
+      if (searchQuery && searchQuery.trim().length > 0) return prev;
+      return stations.map(s => ({ ...s }));
+    });
+  }, [stations, stationsStatus]);
+
   // Update station statuses from real-time context
   useEffect(() => {
     if (Object.keys(stationsStatus).length > 0) {
@@ -147,9 +155,12 @@ export default function MapScreen() {
           stationName: s.stationName || s.name,
           availabilityStatus: s.availabilityStatus || s.status
         })).filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
-        
+        // Show only active stations by default
+        const activeStatuses = ['online', 'available', 'charging'];
+        const active = mapped.filter(s => activeStatuses.includes((s.availabilityStatus || '').toLowerCase()));
+
         setStations(mapped);
-        setFilteredStations(mapped);
+        setFilteredStations(active);
         
         if (mapped.length > 0 && !selectedStation) {
           setSelectedStation(mapped[0]);
@@ -178,11 +189,20 @@ export default function MapScreen() {
           latitude: Number(s.latitude),
           longitude: Number(s.longitude),
         })).filter(s => !isNaN(s.latitude) && !isNaN(s.longitude));
-        
-        setFilteredStations(mapped);
-        if (mapped.length > 0) {
-          setSelectedStation(mapped[0]);
-          focusOnStation(mapped[0]);
+
+        // Client-side search fallback: match name, number, city, district
+        const q = searchQuery.trim().toLowerCase();
+        const filtered = mapped.filter(s => (
+          (s.stationName || '').toLowerCase().includes(q) ||
+          (s.stationNumber || '').toLowerCase().includes(q) ||
+          (s.location || '').toLowerCase().includes(q) ||
+          (s.district || '').toLowerCase().includes(q)
+        ));
+
+        setFilteredStations(filtered);
+        if (filtered.length > 0) {
+          setSelectedStation(filtered[0]);
+          focusOnStation(filtered[0]);
         }
       }
     } catch (error) {
@@ -246,8 +266,9 @@ export default function MapScreen() {
       >
         <View style={styles.cardMain}>
           <View style={styles.cardImageContainer}>
-            <Image 
-              source={{ uri: imageUrl }} 
+            <FallbackImage
+              uri={imageUrl}
+              fallback={require('../assets/images/image.png')}
               style={styles.cardImage}
               resizeMode="cover"
             />

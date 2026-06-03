@@ -74,7 +74,7 @@ export default function ParkingScreen() {
               <VideoView
                 player={player}
                 style={styles.parkingVideo}
-                contentMode="cover"
+                contentFit="cover"
               />
             </View>
           </View>

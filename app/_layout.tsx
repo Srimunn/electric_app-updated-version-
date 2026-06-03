@@ -18,30 +18,17 @@ export default function RootLayout() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        const activeSession = await AsyncStorage.getItem('activeSessionId');
-        const userToken = await AsyncStorage.getItem('userToken');
-
-        if (activeSession) {
-          setTimeout(() => {
-            router.replace('/charging_start');
-          }, 500);
-        } else if (userToken) {
-          setTimeout(() => {
-            router.replace('/selection');
-          }, 500);
-        }
-      } catch (err) {
-        console.log('Error initializing app', err);
-      } finally {
-        // We hide splash screen after a short delay to ensure initial routes are ready
+        // Just hide the splash screen to reveal the initializing page (index.tsx)
         setTimeout(() => {
           SplashScreen.hideAsync();
         }, 1000);
+      } catch (err) {
+        console.log('Error hiding splash screen', err);
       }
     };
 
     initApp();
-  }, [router]);
+  }, []);
 
   return (
     <RealtimeProvider>

@@ -2,20 +2,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, Dimensions, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withDelay } from 'react-native-reanimated';
-/**
- * BRAND COLORS:
- * Grey: #DADBDF
- * Blue: #0D7FF2
- * Black/White
- */
+
 const { width } = Dimensions.get('window');
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();
-  
+  const params = useLocalSearchParams<{
+    sessionId?: string;
+    stationId?: string;
+    stationName?: string;
+    paymentId?: string;
+    orderId?: string;
+    amountPaid?: string;
+  }>();
+
   // Animation values
   const scaleAnim = useSharedValue(0.5);
   const opacityAnim = useSharedValue(0);
@@ -46,6 +49,28 @@ export default function PaymentSuccessScreen() {
     };
   });
 
+  const amountPaid = params.amountPaid || '0.00';
+  const paymentId = params.paymentId || 'TXN-MOCK';
+  const orderId = params.orderId || 'ORD-MOCK';
+  const sessionId = params.sessionId;
+  const stationId = params.stationId;
+  const stationName = params.stationName || 'EV Charger';
+
+  const handleStartCharging = () => {
+    if (sessionId && stationId) {
+      router.replace({
+        pathname: '/charging_start',
+        params: {
+          sessionId: sessionId,
+          stationId: stationId,
+          stationName: stationName
+        }
+      });
+    } else {
+      router.replace('/home');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -63,29 +88,34 @@ export default function PaymentSuccessScreen() {
           <Animated.View style={[styles.textContent, contentStyle]}>
              <Text style={styles.title}>Payment Successful!</Text>
              <Text style={styles.subtitle}>
-               ₹ 450.00 has been paid successfully. Thank you for using our EV Charging hub.
+               ₹{amountPaid} has been authorized and pre-paid. Your charging session is ready to begin.
              </Text>
 
              <View style={styles.receiptCard}>
-                 <View style={styles.receiptRow}>
-                   <Text style={styles.receiptLabel}>Transaction ID</Text>
-                   <Text style={styles.receiptValue}>TXN-98234857</Text>
-                 </View>
-                 <View style={styles.receiptRow}>
-                   <Text style={styles.receiptLabel}>Date & Time</Text>
-                   <Text style={styles.receiptValue}>24 Oct 2023, 01:32pm</Text>
-                 </View>
-                 <View style={[styles.receiptRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
-                   <Text style={styles.receiptLabel}>Amount Paid</Text>
-                   <Text style={styles.receiptHighlight}>₹ 450.00</Text>
-                 </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Payment ID</Text>
+                    <Text style={styles.receiptValue}>{paymentId}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Order ID</Text>
+                    <Text style={styles.receiptValue}>{orderId}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Charging Station</Text>
+                    <Text style={styles.receiptValue} numberOfLines={1}>{stationName}</Text>
+                  </View>
+                  <View style={[styles.receiptRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
+                    <Text style={styles.receiptLabel}>Total Paid</Text>
+                    <Text style={styles.receiptHighlight}>₹{amountPaid}</Text>
+                  </View>
              </View>
           </Animated.View>
         </View>
 
         <Animated.View style={[styles.footer, contentStyle]}>
-           <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/home')}>
-              <Text style={styles.primaryBtnText}>Back to Home</Text>
+           <TouchableOpacity style={styles.primaryBtn} onPress={handleStartCharging}>
+              <Text style={styles.primaryBtnText}>Start Charging Session</Text>
+              <Ionicons name="flash" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
            </TouchableOpacity>
         </Animated.View>
 
@@ -110,7 +140,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   successIconContainer: {
-    marginBottom: 40,
+    marginBottom: 30,
     shadowColor: '#0D7FF2',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
@@ -121,7 +151,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#a1c4e7ff',
+    backgroundColor: '#DBEAFE',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -129,7 +159,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#006ddbff', 
+    backgroundColor: '#0D7FF2', 
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -138,7 +168,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
     color: '#0F172A',
     marginBottom: 12,
@@ -149,7 +179,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
-    marginBottom: 40,
+    marginBottom: 35,
   },
   receiptCard: {
     width: '100%',
@@ -196,6 +226,7 @@ const styles = StyleSheet.create({
     height: 64,
     backgroundColor: '#0D7FF2',
     borderRadius: 20,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,

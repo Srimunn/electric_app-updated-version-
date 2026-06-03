@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import FallbackImage from '../components/ui/fallback-image';
 import { useRealtime } from '../context/RealtimeContext';
 import { getImageUrl, getPricing, startSession } from './services/api';
+import { createOrder, verifyPayment, openCheckout } from './services/payment';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +28,8 @@ export default function HubScreen() {
     location?: string;
     powerOutput?: string;
     basePricePerKwh?: string;
+    tax?: string;
+    convenienceFee?: string;
     available?: string;
     total?: string;
     image?: string;
@@ -51,37 +54,29 @@ export default function HubScreen() {
     }));
   }, [params.total, isOnline]);
 
-  const handleStartCharging = async () => {
+  const handleProceedToPayment = () => {
     if (!isOnline) {
       Alert.alert('Station Offline', 'This station is currently offline or busy.');
       return;
     }
-
-    setIsStarting(true);
-    try {
-      const response = await startSession(stationId);
-      // Backend returns the session object directly (not wrapped in response.session)
-      const sessionId = response._id || response.session?._id;
-      if (sessionId) {
-        await AsyncStorage.setItem('activeSessionId', sessionId);
-        await AsyncStorage.setItem('activeStationId', stationId);
-        router.push({
-          pathname: '/charging_start',
-          params: {
-            sessionId: sessionId,
-            stationId: stationId,
-            stationName: params.stationName,
-          }
-        });
-      } else {
-        Alert.alert('Error', 'Session was created but could not navigate. Please check your active sessions.');
-      }
-    } catch (err: any) {
-      console.error('Failed to start session:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to start charging session.');
-    } finally {
-      setIsStarting(false);
+    if (selectedSlot === null) {
+      Alert.alert('Select Slot', 'Please select a charging slot before proceeding.');
+      return;
     }
+
+    router.push({
+      pathname: '/payment',
+      params: {
+        stationId: stationId,
+        stationName: params.stationName || 'Charging Station',
+        location: params.location || '',
+        connectorId: String(selectedSlot),
+        basePricePerKwh: String(pricing?.basePricePerKwh ?? params.basePricePerKwh ?? '15'),
+        tax: String(pricing?.tax ?? params.tax ?? '0'),
+        convenienceFee: String(pricing?.convenienceFee ?? params.convenienceFee ?? '0'),
+        connectorType: params.connectorType || 'Type 2'
+      }
+    });
   };
 
   // Fetch pricing information
@@ -152,7 +147,7 @@ export default function HubScreen() {
               <Text style={styles.metricSub}>per kWh</Text>
               {pricing && (
                 <View style={{ marginTop: 8 }}>
-                  <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '700' }}>Taxes: ₹{Number(pricing.taxes || 0).toFixed(2)}</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '700' }}>Taxes: ₹{Number(pricing.tax || 0).toFixed(2)}</Text>
                   <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '700' }}>Convenience Fee: ₹{Number(pricing.convenienceFee || 0).toFixed(2)}</Text>
                 </View>
               )}
@@ -225,18 +220,12 @@ export default function HubScreen() {
 
       <View style={styles.footer}>
         <TouchableOpacity 
-          style={[styles.startActionBtn, (!isOnline || isStarting) && styles.startBtnDisabled]} 
-          onPress={handleStartCharging}
-          disabled={!isOnline || isStarting}
+          style={[styles.startActionBtn, !isOnline && styles.startBtnDisabled]} 
+          onPress={handleProceedToPayment}
+          disabled={!isOnline}
         >
-          {isStarting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="flash" size={22} color="#FFFFFF" style={{ marginRight: 10 }} />
-              <Text style={styles.startActionText}>Start Charging Now</Text>
-            </>
-          )}
+          <MaterialCommunityIcons name="credit-card-outline" size={22} color="#FFFFFF" style={{ marginRight: 10 }} />
+          <Text style={styles.startActionText}>Proceed to Payment</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -141,7 +141,7 @@ export default function SelectionScreen() {
                 <View style={styles.noMatchContainer}>
                   <MaterialCommunityIcons name="car-off" size={60} color="#94A3B8" />
                   <Text style={styles.noMatchText}>Vehicle not found</Text>
-                  <Text style={styles.noMatchSubText}>It's not there! Try a different name.</Text>
+                  <Text style={styles.noMatchSubText}>{"It's not there! Try a different name."}</Text>
                 </View>
               )}
 

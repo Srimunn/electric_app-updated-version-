@@ -1,50 +1,86 @@
-# Welcome to your Expo app 👋
+# Autonomous Wireless EV Charging Client ⚡
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Welcome to the **Autonomous Wireless EV Charging App**. This is a React Native / Expo web application designed to run seamlessly on modern laptops and mobile browsers.
 
-## Get started
+This guide provides step-by-step instructions to set up, configure, and run the web application locally on your laptop.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 📋 Prerequisites
 
-2. Start the app
+Before running the application, make sure you have the following installed on your laptop:
 
-   ```bash
-   npx expo start
-   ```
+1. **Node.js** (v18.x or v20.x recommended):
+   - [Download Node.js](https://nodejs.org/) and follow the installer instructions.
+   - To verify the installation, open your terminal/command prompt and run:
+     ```bash
+     node -v
+     npm -v
+     ```
+2. **Git** (Optional, to clone the project):
+   - [Download Git](https://git-scm.com/) if you haven't already.
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🚀 Getting Started
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Follow these steps to run the web application on your laptop:
 
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Clone or Extract the Project
+If you are using Git, clone the repository:
 ```bash
-npm run reset-project
+git clone https://github.com/Srimunn/electric_app-updated-version-.git
+cd electric_app-updated-version-
 ```
+Otherwise, extract the zip file of the project and open your terminal (Command Prompt, PowerShell, or Git Bash) inside the project folder.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Configure Environment Variables
+The frontend communicates with a backend server. You need to configure the backend API URL.
 
-## Learn more
+1. Locate or create a file named `.env` in the root directory.
+2. Open `.env` and set `EXPO_PUBLIC_API_URL` to point to your running backend server:
+   ```env
+   EXPO_PUBLIC_API_URL=http://localhost:5000
+   ```
+   *(Replace `http://localhost:5000` with the actual IP address/URL where the backend server is running if it is hosted elsewhere or running on another machine on the LAN).*
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Install Dependencies
+Run the following command to download and install all necessary packages:
+```bash
+npm install
+```
+*(This may take a minute or two to finish).*
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### 4. Start the Web App
+Run the start command tailored for web mode:
+```bash
+npm run web
+```
+This command starts the Expo developer server and opens the application in your default web browser automatically (typically at `http://localhost:8081`).
 
-## Join the community
+*If the browser does not open automatically, look at the terminal output and open the displayed URL (e.g., `http://localhost:8081`) manually.*
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🛠️ Folder Structure & Highlights
+
+- **`app/`**: Contains the main screen layouts and screens (using Expo Router file-based navigation):
+  - `index.tsx`: Main loading and initialization screen.
+  - `login.tsx` & `register.tsx`: User authentication.
+  - `selection.tsx`: Vehicle model selection.
+  - `home.tsx` & `details.tsx`: Charging status and vehicle details.
+  - `settings.tsx`: Profile controls and logout mechanism.
+- **`app/config/network.ts`**: Resolves the backend server URLs dynamically depending on the environment.
+- **`context/`**: Manages React state contexts (e.g., realtime websocket connections and vehicle selection state).
+
+---
+
+## ❓ Troubleshooting
+
+### Port Already In Use
+If you get an error saying port `8081` is already in use, Expo will ask if you want to use a different port. Type `y` (yes) to run it on an alternative port (e.g. `8082`).
+
+### Connecting to Backend Issues
+- Ensure your backend server is active and running.
+- If you are running the backend on a different machine or testing on a physical mobile device, update `.env` with the machine's local IP (e.g. `EXPO_PUBLIC_API_URL=http://192.168.1.15:5000`).
+- Ensure both the laptop running the web app and the machine running the backend are on the same Wi-Fi network.

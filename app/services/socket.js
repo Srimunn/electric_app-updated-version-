@@ -9,7 +9,7 @@ class SocketService {
     this.globalHandlers = new Map();
     this.connected = false;
     // Use only the centralized socket base URL
-    this.serverUrls = SOCKET_BASE_URL ? [SOCKET_BASE_URL] : ['http://localhost:5000'];
+    this.serverUrls = SOCKET_BASE_URL ? [SOCKET_BASE_URL] : [];
     this.currentUrlIndex = 0;
     this.isConnecting = false;
     this.allHostsExhausted = false; // Track if all fallback hosts have been tried
@@ -44,19 +44,19 @@ class SocketService {
 
     this.socket.on('connect', () => {
       this.isConnecting = false;
-      console.log('✅ Socket.io Connected');
+      console.log(`✅ Socket.io Connected to ${url}`);
       this.connected = true;
       this.notifyListeners('connection_change', true);
     });
 
     this.socket.on('disconnect', () => {
-      console.log('🔌 Socket.io Disconnected');
+      console.log(`🔌 Socket.io Disconnected from ${url}`);
       this.connected = false;
       this.notifyListeners('connection_change', false);
     });
 
     this.socket.on('connect_error', (error) => {
-      console.warn(`⚠️ Socket.io connect_error for ${url}:`, error?.message || error);
+      console.error(`⚠️ Socket.io connect_error for ${url}:`, error?.message || error);
       // Allow socket.io automatic reconnection; if persistent, surface state via notifyListeners
       if (!this.connected) {
         this.notifyListeners('connection_change', false);
@@ -76,6 +76,7 @@ class SocketService {
     globalEvents.forEach((evt) => {
       if (this.globalHandlers.has(evt)) return; // already registered
       const handler = (data) => {
+        console.log(`📡 Socket Event [${evt}]: received data`);
         const name = evt === 'new_alert' ? 'alert' : evt;
         this.notifyListeners(name, data);
       };
@@ -96,6 +97,7 @@ class SocketService {
     const handler = (data) => {
       if (!data) return;
       if (data.stationId && data.stationId !== stationId) return;
+      console.log(`📡 Socket Event [live_data] for ${stationId}: received data`);
       this.notifyListeners('live_data', data);
       this.notifyListeners(`live_data:${stationId}`, data);
     };

@@ -26,8 +26,8 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!password.trim()) {
-      setError('Enter a password');
+    if (!/^\d{6}$/.test(password)) {
+      setError('PIN must be exactly 6 digits');
       return;
     }
 
@@ -111,18 +111,22 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Password</Text>
+                <Text style={styles.inputLabel}>6-Digit PIN</Text>
                 <TextInput 
                   style={styles.textInput}
-                  placeholder="Your Password"
+                  placeholder="123456"
                   placeholderTextColor="#94A3B8"
                   value={password}
                   onChangeText={(text) => {
-                    setPassword(text);
+                    // Only allow numeric input up to 6 digits
+                    const cleaned = text.replace(/[^\d]/g, '');
+                    setPassword(cleaned);
                     if (error) setError('');
                   }}
                   secureTextEntry
                   autoCapitalize="none"
+                  keyboardType="numeric"
+                  maxLength={6}
                 />
               </View>
 
@@ -139,7 +143,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <View style={styles.footer}>
-                <Text style={styles.footerText}>Don't have an account? </Text>
+                <Text style={styles.footerText}>{"Don't have an account? "}</Text>
                 <TouchableOpacity onPress={() => router.push('/register')} disabled={isLoading}>
                   <Text style={styles.resendLink}>
                     Register

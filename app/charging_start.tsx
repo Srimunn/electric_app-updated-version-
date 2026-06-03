@@ -129,9 +129,12 @@ export default function ChargingStartScreen() {
     };
   }, [params.stationId]);
 
+  const hasReceivedSocketUpdates = useRef(false);
+
   // Handle real-time updates
   useEffect(() => {
     if (lastUpdate && lastUpdate.stationId === params.stationId) {
+      hasReceivedSocketUpdates.current = true;
       setStats({
         power: lastUpdate.power || 0,
         voltage: lastUpdate.voltage || 0,
@@ -148,6 +151,46 @@ export default function ChargingStartScreen() {
       }
     }
   }, [lastUpdate, isPaused]);
+
+  // Local telemetry simulation when offline/no socket updates are active
+  useEffect(() => {
+    if (hasReceivedSocketUpdates.current) return;
+
+    // Initialize with realistic charging telemetry starting values if currently 0
+    setStats((prev) => {
+      if (prev.voltage === 0) {
+        return {
+          power: 45.8,
+          voltage: 380.0,
+          current: 120.5,
+          temperature: 32.5,
+          energy: 0.0,
+        };
+      }
+      return prev;
+    });
+
+    const interval = setInterval(() => {
+      if (!isPaused) {
+        setStats((prev) => {
+          const powerOffset = (Math.random() - 0.5) * 1.5;
+          const power = Math.max(20, Math.min(150, prev.power + powerOffset));
+          const voltage = 380 + (Math.random() - 0.5) * 8;
+          const current = (power * 1000) / voltage;
+          const temperature = Math.min(65, prev.temperature + 0.03);
+          const energy = prev.energy + (power / 3600); // 1 sec power to kWh conversion
+          return { power, voltage, current, temperature, energy };
+        });
+
+        setPercent((prev) => {
+          if (prev >= 100) return 100;
+          return Math.min(100, prev + 1);
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isPaused]);
 
   // Session duration timer
   useEffect(() => {
@@ -188,16 +231,37 @@ export default function ChargingStartScreen() {
     }
   }, [isPaused]);
 
-  const handleStopCharging = async () => {
+  const handleStopCharging = () => {
+    Alert.alert(
+      'Confirm Stop',
+      'Are you sure you want to stop the charging session?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Stop Charging', style: 'destructive', onPress: performStopCharging }
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const performStopCharging = async () => {
     setIsStopping(true);
     try {
       const sessionId = params.sessionId || await AsyncStorage.getItem('activeSessionId');
       if (sessionId) {
         await stopSession(sessionId);
+        await AsyncStorage.setItem('lastSessionId', sessionId);
         await AsyncStorage.removeItem('activeSessionId');
         await AsyncStorage.removeItem('activeStationId');
       }
-      router.replace({ pathname: '/completed', params: { percent: Math.round(percent), energy: stats.energy.toFixed(2) } });
+      router.replace({ 
+        pathname: '/completed', 
+        params: { 
+          percent: Math.round(percent), 
+          energy: stats.energy.toFixed(2),
+          duration: formatTime(sessionDuration),
+          sessionId: sessionId || ''
+        } 
+      });
     } catch (err: any) {
       console.log('Failed to stop session', err);
       Alert.alert('Error', err.response?.data?.message || 'Failed to stop session');
@@ -205,6 +269,32 @@ export default function ChargingStartScreen() {
       setIsStopping(false);
     }
   };
+
+  const handleAutoStopAt100 = async () => {
+    setIsStopping(true);
+    try {
+      const sessionId = params.sessionId || await AsyncStorage.getItem('activeSessionId');
+      if (sessionId) {
+        await stopSession(sessionId);
+        await AsyncStorage.setItem('lastSessionId', sessionId);
+        await AsyncStorage.removeItem('activeSessionId');
+        await AsyncStorage.removeItem('activeStationId');
+      }
+      Alert.alert('Charging Complete', 'Your battery has reached 100%. Redirecting to history.');
+      router.replace('/history');
+    } catch (err) {
+      console.log('Failed to auto stop session', err);
+      router.replace('/history');
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
+  useEffect(() => {
+    if (percent >= 100 && !isStopping) {
+      handleAutoStopAt100();
+    }
+  }, [percent]);
 
   const didMountPercent = useRef(false);
   useEffect(() => {

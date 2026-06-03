@@ -91,6 +91,7 @@ const EVMarkerIcon = React.memo(({ selected = false, availability = 'online' }: 
     </Animated.View>
   );
 });
+EVMarkerIcon.displayName = 'EVMarkerIcon';
 
 export default function MapScreen() {
   const router = useRouter();

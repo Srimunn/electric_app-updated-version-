@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -24,12 +25,27 @@ export default function ChargingScreen() {
   const opacityAnim = useSharedValue(0);
 
   // Function to trigger navigation on the JS thread
-  const navigateToLogin = () => {
+  const navigateToNext = async () => {
     setComplete(true);
-    // Give the user a moment (800ms) to see the 100% "Initialized" state
-    setTimeout(() => {
-      router.replace('/login');
-    }, 800);
+    
+    try {
+      const activeSession = await AsyncStorage.getItem('activeSessionId');
+      const userToken = await AsyncStorage.getItem('userToken');
+
+      // Give the user a moment (800ms) to see the 100% "Initialized" state
+      setTimeout(() => {
+        if (activeSession) {
+          router.replace('/charging_start');
+        } else if (userToken) {
+          router.replace('/selection');
+        } else {
+          router.replace('/login');
+        }
+      }, 800);
+    } catch (err) {
+      console.log('Error checking auth state:', err);
+      setTimeout(() => router.replace('/login'), 800);
+    }
   };
 
   useEffect(() => {
@@ -41,7 +57,7 @@ export default function ChargingScreen() {
       // 1. Animate the progress bar
       progress.value = withTiming(1, { duration: totalDuration }, (isFinished) => {
         if (isFinished) {
-          runOnJS(navigateToLogin)();
+          runOnJS(navigateToNext)();
         }
       });
 

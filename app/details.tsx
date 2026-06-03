@@ -29,19 +29,26 @@ const VEHICLES = [
 
 export default function VehicleDetails() {
   const router = useRouter();
-  const { id, name, variant, battery, range, topSpeed, acceleration } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const idStr = Array.isArray(params.id) ? params.id[0] : params.id;
+  const nameStr = Array.isArray(params.name) ? params.name[0] : params.name;
+  const variantStr = Array.isArray(params.variant) ? params.variant[0] : params.variant;
+  const batteryStr = Array.isArray(params.battery) ? params.battery[0] : params.battery;
+  const rangeStr = Array.isArray(params.range) ? params.range[0] : params.range;
+  const topSpeedStr = Array.isArray(params.topSpeed) ? params.topSpeed[0] : params.topSpeed;
+  const accelerationStr = Array.isArray(params.acceleration) ? params.acceleration[0] : params.acceleration;
 
-  const staticVehicle = VEHICLES.find(v => v.id === id) || VEHICLES[0];
+  const staticVehicle = VEHICLES.find(v => v.id === idStr) || VEHICLES[0];
 
   // Merge the dynamically fetched data (passed via params) with static defaults
   const vehicle = {
-    id: id || staticVehicle.id,
-    name: name || staticVehicle.name,
-    variant: variant || staticVehicle.variant,
-    battery: battery || staticVehicle.battery,
-    range: range || staticVehicle.range,
-    topSpeed: topSpeed || staticVehicle.topSpeed,
-    acceleration: acceleration || staticVehicle.acceleration,
+    id: idStr || staticVehicle.id,
+    name: nameStr || staticVehicle.name,
+    variant: variantStr || staticVehicle.variant,
+    battery: batteryStr || staticVehicle.battery,
+    range: rangeStr || staticVehicle.range,
+    topSpeed: topSpeedStr || staticVehicle.topSpeed,
+    acceleration: accelerationStr || staticVehicle.acceleration,
     image: staticVehicle.image // Default to static image since APIs may lack direct local image mapping
   };
 

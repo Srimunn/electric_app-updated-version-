@@ -1,15 +1,5 @@
-import Constants from "expo-constants";
+import { API_BASE_URL as _API_BASE_URL } from '../app/config/network';
 
-const getHostFromExpo = () => {
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (!hostUri) return null;
-  return hostUri.split(":")[0];
-};
+// Export the same constant name for backward compatibility
+export const API_BASE_URL = _API_BASE_URL;
 
-const detectedHost = getHostFromExpo();
-
-// Backend runs in charge-hub-admin on port 5000.
-// For physical devices this uses the Expo host LAN IP.
-export const API_BASE_URL = detectedHost
-  ? `http://${detectedHost}:5000/api`
-  : "http://localhost:5000/api";

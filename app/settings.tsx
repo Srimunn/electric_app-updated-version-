@@ -4,6 +4,7 @@ import { StyleSheet, Text, View, Dimensions, TouchableOpacity, ScrollView } from
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -120,7 +121,10 @@ export default function SettingsScreen() {
                 title="Log Out"
                 isLast={true}
                 hideCaret={true}
-                onPress={() => router.replace('/login')}
+                onPress={async () => {
+                  await AsyncStorage.clear();
+                  router.replace('/login');
+                }}
              />
           </View>
 

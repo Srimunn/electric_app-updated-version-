@@ -6,9 +6,25 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useVehicle } from '../context/VehicleContext';
-import { getImageUrl, getStations } from './services/api';
+import { getImageUrl, getStations, getActiveAlerts, getActiveFaults } from './services/api';
 
 const { width, height } = Dimensions.get('window');
+
+// Date Formatter Helper for Notifications
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return 'Just now';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'Just now';
+  const now = new Date();
+  const diffTime = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffTime / 60000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  return d.toLocaleDateString([], options);
+};
 
 /**
  * BRAND COLORS:
@@ -23,18 +39,28 @@ export default function HomeScreen() {
   const { selectedVehicleName } = useVehicle();
   const [showNotification, setShowNotification] = useState(false);
   const [nearestStation, setNearestStation] = useState<any>(null);
+  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const [activeFaults, setActiveFaults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchHomeData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getStations();
-      if (data && data.length > 0) {
+      const [stationsData, alertsData, faultsData] = await Promise.all([
+        getStations(),
+        getActiveAlerts().catch(() => []),
+        getActiveFaults().catch(() => [])
+      ]);
+      
+      if (stationsData && stationsData.length > 0) {
         // For now, just pick the first one as "nearest"
-        setNearestStation(data[0]);
+        setNearestStation(stationsData[0]);
       } else {
         setNearestStation(null);
       }
+      
+      setActiveAlerts(alertsData || []);
+      setActiveFaults(faultsData || []);
     } catch (err) {
       console.error('Home fetch error:', err);
     } finally {
@@ -69,7 +95,9 @@ export default function HomeScreen() {
               onPress={() => setShowNotification(true)}
             >
               <Ionicons name="notifications-outline" size={26} color="#FFFFFF" />
-              <View style={styles.notifDot} />
+              {(activeAlerts.length > 0 || activeFaults.length > 0) && (
+                <View style={styles.notifDot} />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -193,23 +221,45 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             
-            <View style={styles.messageItem}>
-              <View style={styles.blueDot} />
-              <View style={styles.messageTextContainer}>
-                <Text style={styles.messageTitle}>Charging Complete!</Text>
-                <Text style={styles.messageBody}>Your vehicle is now fully charged and ready for your next adventure. Enjoy the ride!</Text>
-                <Text style={styles.messageTime}>Just now</Text>
-              </View>
-            </View>
-
-            <View style={[styles.messageItem, { opacity: 0.6 }]}>
-              <View style={[styles.blueDot, { backgroundColor: '#CBD5E1' }]} />
-              <View style={styles.messageTextContainer}>
-                <Text style={styles.messageTitle}>System Update</Text>
-                <Text style={styles.messageBody}>Wireless handshake optimization is now active in your area.</Text>
-                <Text style={styles.messageTime}>2 hours ago</Text>
-              </View>
-            </View>
+            <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
+              {activeAlerts.length === 0 && activeFaults.length === 0 ? (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <Ionicons name="notifications-off-outline" size={40} color="#94A3B8" />
+                  <Text style={{ fontSize: 15, color: '#64748B', fontWeight: '600', marginTop: 10, textAlign: 'center' }}>
+                    No new notifications. Everything is running smoothly.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {activeAlerts.map((alert, idx) => (
+                    <View key={alert._id || `alert-${idx}`} style={styles.messageItem}>
+                      <View style={[styles.blueDot, alert.severity === 'HIGH' && { backgroundColor: '#EF4444' }]} />
+                      <View style={styles.messageTextContainer}>
+                        <Text style={styles.messageTitle}>{alert.title || 'System Notification'}</Text>
+                        <Text style={styles.messageBody}>
+                          Station: {alert.stationId?.name || 'Charging Station'}. Severity: {alert.severity || 'HIGH'}
+                        </Text>
+                        <Text style={styles.messageTime}>{formatDate(alert.timestamp || alert.createdAt)}</Text>
+                      </View>
+                    </View>
+                  ))}
+                  
+                  {activeFaults.map((fault, idx) => (
+                    <View key={fault._id || `fault-${idx}`} style={styles.messageItem}>
+                      <View style={[styles.blueDot, { backgroundColor: '#EF4444' }]} />
+                      <View style={styles.messageTextContainer}>
+                        <Text style={styles.messageTitle}>{fault.faultName || 'Active System Fault'}</Text>
+                        <Text style={styles.messageBody}>
+                          {fault.message || 'An error occurred during system operation.'}
+                          {'\n'}Station: {fault.stationId?.name || 'Charging Station'}
+                        </Text>
+                        <Text style={styles.messageTime}>{formatDate(fault.timestamp || fault.createdAt)}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+            </ScrollView>
 
             <TouchableOpacity 
               style={styles.closeModalBtn}

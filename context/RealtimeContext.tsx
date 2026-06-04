@@ -25,7 +25,7 @@ export const RealtimeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const checkHealthAndConnect = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET' });
+        const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
         if (!mounted) return;
         if (res.ok) {
           const json = await res.json();

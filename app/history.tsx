@@ -187,7 +187,10 @@ export default function HistoryScreen() {
               )}
               <View style={styles.titleTextContainer}>
                 <Text style={styles.locationName} numberOfLines={1}>{stationName}</Text>
-                <Text style={styles.datetime}>{formatDate(item.startTime)}</Text>
+                <Text style={styles.datetime}>Start: {formatDate(item.startTime)}</Text>
+                {item.endTime && (
+                  <Text style={styles.datetime}>Stop: {formatDate(item.endTime)}</Text>
+                )}
               </View>
             </View>
             <View style={[styles.typeBadge, { backgroundColor: '#EFF6FF' }]}>

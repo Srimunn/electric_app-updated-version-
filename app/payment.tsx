@@ -57,6 +57,7 @@ export default function PaymentScreen() {
     tax?: string;
     convenienceFee?: string;
     connectorType?: string;
+    image?: string;
   }>();
 
   const stationId = params.stationId as string;
@@ -130,7 +131,8 @@ export default function PaymentScreen() {
             stationName: params.stationName,
             paymentId: verificationResponse.payment?.paymentId || paymentResult.razorpay_payment_id,
             orderId: orderData.orderId,
-            amountPaid: String(estimatedTotal.toFixed(2))
+            amountPaid: String(estimatedTotal.toFixed(2)),
+            image: params.image || ''
           }
         });
       } else {

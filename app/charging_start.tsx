@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { stopSession } from './services/api';
+import { stopSession, getImageUrl } from './services/api';
 import { useRealtime } from '../context/RealtimeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
@@ -97,7 +97,7 @@ function BatteryGlyph({
 
 export default function ChargingStartScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ sessionId?: string, stationId?: string, stationName?: string }>();
+  const params = useLocalSearchParams<{ sessionId?: string, stationId?: string, stationName?: string, image?: string }>();
   const { lastUpdate, joinStation, leaveStation } = useRealtime();
   
   const [percent, setPercent] = useState(0);
@@ -345,7 +345,15 @@ export default function ChargingStartScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.carInfoSection}>
             <View style={styles.carLogoContainer}>
-               <Image source={require('../assets/images/nexon.png')} style={styles.carLogo} resizeMode="cover" />
+               {params.image ? (
+                 <Image 
+                   source={{ uri: params.image.startsWith('http') ? params.image : getImageUrl(params.image) }} 
+                   style={styles.carLogo} 
+                   resizeMode="cover" 
+                 />
+               ) : (
+                 <Image source={require('../assets/images/nexon.png')} style={styles.carLogo} resizeMode="cover" />
+               )}
             </View>
             <Text style={styles.carName}>{params.stationName || 'EV Charging Station'}</Text>
             <View style={styles.chargingBadge}>

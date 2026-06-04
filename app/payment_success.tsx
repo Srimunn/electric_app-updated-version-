@@ -17,6 +17,7 @@ export default function PaymentSuccessScreen() {
     paymentId?: string;
     orderId?: string;
     amountPaid?: string;
+    image?: string;
   }>();
 
   // Animation values
@@ -63,7 +64,8 @@ export default function PaymentSuccessScreen() {
         params: {
           sessionId: sessionId,
           stationId: stationId,
-          stationName: stationName
+          stationName: stationName,
+          image: params.image || ''
         }
       });
     } else {

@@ -74,7 +74,8 @@ export default function HubScreen() {
         basePricePerKwh: String(pricing?.basePricePerKwh ?? params.basePricePerKwh ?? '15'),
         tax: String(pricing?.tax ?? params.tax ?? '0'),
         convenienceFee: String(pricing?.convenienceFee ?? params.convenienceFee ?? '0'),
-        connectorType: params.connectorType || 'Type 2'
+        connectorType: params.connectorType || 'Type 2',
+        image: params.image || ''
       }
     });
   };

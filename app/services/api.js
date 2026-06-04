@@ -223,4 +223,15 @@ export const getUserPayments = async () => {
   const response = await requestWithRetry((client) => client.get('/payments?scope=user'), 2);
   return response.data;
 };
+
+export const getActiveFaults = async () => {
+  const response = await requestWithRetry((client) => client.get('/faults'), 2);
+  return response.data;
+};
+
+export const getActiveAlerts = async () => {
+  const response = await requestWithRetry((client) => client.get('/faults/alerts'), 2);
+  return response.data;
+};
+
 export default API_CLIENT;

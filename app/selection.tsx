@@ -5,6 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { useVehicle } from '../context/VehicleContext';
 import { ActivityIndicator, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SOCKET_BASE_URL } from './config/network';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +38,28 @@ export default function SelectionScreen() {
   const [selectedId, setSelectedId] = useState('1');
   const [searchQuery, setSearchQuery] = useState('');
   const { setSelectedVehicleName, setSelectedVehicleImage } = useVehicle();
+
+  // Retrieve user ID and register FCM device token with the backend
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getUserId = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('userData');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?._id) {
+            setUserId(parsed._id);
+          }
+        }
+      } catch (err) {
+        console.warn('Error reading userData from AsyncStorage:', err);
+      }
+    };
+    getUserId();
+  }, []);
+
+  usePushNotifications(userId, SOCKET_BASE_URL);
 
   // Use the local static array directly to ensure exact 1:1 image mapping
   const vehicles = FALLBACK_VEHICLES;

@@ -116,16 +116,28 @@ export default function SettingsScreen() {
                 icon="help-circle-outline"
                 title="Help and Support"
              />
-             <SettingsOption 
-                icon="log-out-outline"
-                title="Log Out"
-                isLast={true}
-                hideCaret={true}
-                onPress={async () => {
-                  await AsyncStorage.clear();
-                  router.replace('/login');
-                }}
-             />
+              <SettingsOption 
+                 icon="log-out-outline"
+                 title="Log Out"
+                 isLast={true}
+                 hideCaret={true}
+                 onPress={async () => {
+                   try {
+                     const userToken = await AsyncStorage.getItem('userToken');
+                     if (userToken) {
+                       const { SOCKET_BASE_URL } = require('./config/network');
+                       const axios = require('axios');
+                       await axios.delete(`${SOCKET_BASE_URL}/api/notifications/unregister-device`, {
+                         headers: { Authorization: `Bearer ${userToken}` }
+                       });
+                     }
+                   } catch (err: any) {
+                     console.warn('Failed to unregister device token on logout:', err.message);
+                   }
+                   await AsyncStorage.clear();
+                   router.replace('/login');
+                 }}
+              />
           </View>
 
           <Text style={styles.versionText}>v4.12.0 • Made with Pulse Energy</Text>

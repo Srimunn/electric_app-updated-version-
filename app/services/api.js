@@ -234,4 +234,14 @@ export const getActiveAlerts = async () => {
   return response.data;
 };
 
+export const getNotifications = async (page = 1, limit = 20) => {
+  const response = await requestWithRetry((client) => client.get(`/notifications?page=${page}&limit=${limit}`), 2);
+  return response.data;
+};
+
+export const markNotificationsRead = async (notificationIds) => {
+  const response = await requestWithRetry((client) => client.put('/notifications/read', { notificationIds }), 2);
+  return response.data;
+};
+
 export default API_CLIENT;

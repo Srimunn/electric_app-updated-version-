@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useVehicle } from '../context/VehicleContext';
-import { getImageUrl, getStations, getActiveAlerts, getActiveFaults } from './services/api';
+import { getImageUrl, getStations, getActiveAlerts, getActiveFaults, getNotifications } from './services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,15 +41,17 @@ export default function HomeScreen() {
   const [nearestStation, setNearestStation] = useState<any>(null);
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
   const [activeFaults, setActiveFaults] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchHomeData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [stationsData, alertsData, faultsData] = await Promise.all([
+      const [stationsData, alertsData, faultsData, notificationsData] = await Promise.all([
         getStations(),
         getActiveAlerts().catch(() => []),
-        getActiveFaults().catch(() => [])
+        getActiveFaults().catch(() => []),
+        getNotifications(1, 100).catch(() => [])
       ]);
       
       if (stationsData && stationsData.length > 0) {
@@ -61,6 +63,9 @@ export default function HomeScreen() {
       
       setActiveAlerts(alertsData || []);
       setActiveFaults(faultsData || []);
+
+      const unread = (notificationsData || []).filter((n: any) => !n.read).length;
+      setUnreadCount(unread);
     } catch (err) {
       console.error('Home fetch error:', err);
     } finally {
@@ -92,11 +97,15 @@ export default function HomeScreen() {
             </View>
             <TouchableOpacity 
               style={styles.notificationBtn}
-              onPress={() => setShowNotification(true)}
+              onPress={() => router.push('/notifications')}
             >
               <Ionicons name="notifications-outline" size={26} color="#FFFFFF" />
-              {(activeAlerts.length > 0 || activeFaults.length > 0) && (
-                <View style={styles.notifDot} />
+              {unreadCount > 0 && (
+                <View style={styles.badgeContainer}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>
@@ -671,5 +680,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

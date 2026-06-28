@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
 // Configure how notifications are handled when the app is in the foreground
@@ -15,7 +16,7 @@ Notifications.setNotificationHandler({
 });
 
 export function usePushNotifications(userId: string | null, backendUrl: string) {
-  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [devicePushToken, setDevicePushToken] = useState<string | null>(null);
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<any>();
   const responseListener = useRef<any>();
@@ -25,7 +26,7 @@ export function usePushNotifications(userId: string | null, backendUrl: string) 
 
     registerForPushNotificationsAsync().then((token) => {
       if (token) {
-        setExpoPushToken(token);
+        setDevicePushToken(token);
         // Upload token to backend for this user
         saveTokenToBackend(token);
       }
@@ -53,23 +54,26 @@ export function usePushNotifications(userId: string | null, backendUrl: string) 
 
   const saveTokenToBackend = async (token: string) => {
     try {
-      const storageToken = localStorage.getItem("token"); // Or AsyncStorage in React Native
-      await axios.put(
-        `${backendUrl}/api/notifications/preferences`,
-        { pushAlerts: true, fcmToken: token },
+      const storageToken = await AsyncStorage.getItem("userToken");
+      if (!storageToken) return;
+
+      // Endpoint to store device token in MongoDB collection deviceTokens
+      await axios.post(
+        `${backendUrl}/api/notifications/register-device`,
+        { token, platform: Platform.OS },
         {
           headers: {
             Authorization: `Bearer ${storageToken}`,
           },
         }
       );
-      console.log("✅ Device Push Token successfully synchronized with backend");
+      console.log("✅ Device Push Token successfully synchronized with backend collection");
     } catch (err: any) {
       console.warn("❌ Failed to synchronize push token with backend:", err.message);
     }
   };
 
-  return { expoPushToken, notification };
+  return { devicePushToken, notification };
 }
 
 async function registerForPushNotificationsAsync() {
@@ -96,15 +100,17 @@ async function registerForPushNotificationsAsync() {
       return null;
     }
     
-    // Get the Expo Push Token
+    // Get native device push token (e.g. FCM token)
     try {
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-      if (!projectId) {
-        console.warn("EAS Project ID not found in app.json. Please configure EAS.");
-      }
-      token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      token = (await Notifications.getDevicePushTokenAsync()).data;
     } catch (err: any) {
-      console.warn("Error getting push token:", err.message);
+      console.warn("Error getting device push token, attempting Expo fallback:", err.message);
+      try {
+        const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      } catch (expoErr: any) {
+        console.warn("Error getting fallback Expo push token:", expoErr.message);
+      }
     }
   } else {
     console.log("Must use physical device for Push Notifications");

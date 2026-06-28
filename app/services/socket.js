@@ -72,7 +72,7 @@ class SocketService {
     });
 
     // Global updates - attach named handlers and keep references for cleanup
-    const globalEvents = ['station_update', 'live_updates', 'transaction_update', 'fault_alert', 'ocpp_status', 'new_alert'];
+    const globalEvents = ['station_update', 'live_updates', 'transaction_update', 'fault_alert', 'ocpp_status', 'new_alert', 'new_notification'];
     globalEvents.forEach((evt) => {
       if (this.globalHandlers.has(evt)) return; // already registered
       const handler = (data) => {

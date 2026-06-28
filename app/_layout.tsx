@@ -50,6 +50,7 @@ export default function RootLayout() {
           <Stack.Screen name="history" />
           <Stack.Screen name="profile" />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="notifications" />
         </Stack>
         <OfflineIndicator />
         <StatusBar style="auto" />

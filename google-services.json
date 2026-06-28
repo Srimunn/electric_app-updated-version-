@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "999695278146",
+    "project_id": "managementapp-fd1a2",
+    "storage_bucket": "managementapp-fd1a2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:999695278146:android:4ff0ec61371f6a2e298ddb",
+        "android_client_info": {
+          "package_name": "com.evcharge.operator"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIctvTepNxwnRfg5XOBGjz_2m8EHee9TU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
